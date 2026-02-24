@@ -24,6 +24,13 @@ By relaxing strict, blocking temporal object-boundary synchronization, Lizard ac
 
 Lizard embraces an **Eventual Consistency** model at the cache-line level. Data structures converge naturally over microscopic time horizons without ever halting the execution pipeline. This makes Lizard the mathematically optimal choice for stochastic simulations, probabilistic modeling, and high-velocity data streams where continuous execution speed is prioritized over atomic struct rigidity.
 
+### ⚙️ Compiler Optimization Flags
+Lizard maps optimization flags (`-L`) directly to physical hardware cache-line synchronization, allowing developers to dynamically trade strict data integrity for raw throughput.
+
+*   **`-L1` (Default) — Strict Consistency:** The compiler silently injects an implicit `seqlock` (Sequence Lock) and hidden `uint64_t` counters into all struct/object boundaries. Guarantees 100% tear-free reads and writes across complex data structures without ever blocking the writer thread. 
+*   **`-L2` — Eventual Consistency:** Strips all sequence counters and brute-forces the AMD Infinity Fabric. Injects the `F0` (`LOCK`) prefix on every single primitive memory mutation. Accepts torn reads across complex structs in exchange for massive throughput gains. Designed for stochastic simulations where macro-statistical speed outweighs micro-tick precision.
+*   **`-L3` — Bare-Metal Anarchy:** Zero locks. Zero sequence counters. Zero `F0` prefixes. The compiler emits pure, raw x86_64 arithmetic instructions. Guarantees catastrophic data races on shared memory. Executes at the absolute physical speed limit of the silicon.
+
 ## 📊 Benchmarks
 
 * **Python (GIL):** ~10k ops/sec
