@@ -122,8 +122,8 @@ Modern CPUs utilize highly advanced branch predictors (e.g., AMD's TAGE). In hig
 [[alignas(64)]]
 [[packed]]
 struct StockQuote:
-    bid: fixed_decimal
-    ask: fixed_decimal
+    bid: decimal32
+    ask: decimal32
     timestamp: int64
 
 def exampleConcurrentLizardFunction():
