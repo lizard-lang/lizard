@@ -8,7 +8,9 @@ Lizard was built for modern developer happiness—but never at the expense of ra
 
 For thirty years, the software industry has forced developers into a false dichotomy: either write elegant, rapid-prototyping code in high-level languages (and suffer the GIL, the Garbage Collector, and the Virtual Machine), or write mathematically perfect, high-throughput code in C/C++ (and suffer decades of legacy syntax, ABI breakage, and manual memory fences).
 
-Lizard destroys this dichotomy. We believe you can have the syntactic sugar and rapid iteration of Python, perfectly balanced with the ruthless, bare-metal execution speed of C++23. 
+Lizard destroys this dichotomy. We believe you can have the syntactic sugar and rapid iteration of Python, perfectly balanced with ruthless, bare-metal execution speed. 
+
+In fact, Lizard looks at C++ and says: **"You aren't fast enough anymore. Your linker is slow, your struct padding is manual, your exceptions are a liability, and your syntax is from 1983."**
 
 ### 1. The Compiler is a Co-Pilot, Not a Nanny
 Modern systems languages often adopt an adversarial relationship with the developer, enforcing strict borrow checkers to prevent you from hurting yourself, or hiding memory allocations entirely. 
