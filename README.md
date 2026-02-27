@@ -51,4 +51,4 @@ lizard alpha.liz
 * **Data Integrity (Reiterated):** Lizard prioritizes raw execution speed over strict object-boundary synchronization. Do not use `-L2` or `-L3` flags for applications requiring perfect temporal atomicity (e.g., banking ledgers). By using this compiler, you accept that your structs may experience High-Velocity Eventual Consistency (torn reads).
 * **Support:** There is no enterprise support. If your pipeline fails, drop your tail (`XCHG EAX, ESP` 🔥) and write faster code.
 
-Copyright: Adderalin released under MIT license
+Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
