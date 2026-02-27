@@ -344,7 +344,7 @@ To import a module, the developer must explicitly define the namespace, the dire
 sockets      github.com/lizard-lang/sockets           "v1.1.12"
 dll-loader   github.com/lizard-lang/dll-loader        4630bb8f125146662d41aea1a10c5bbccc1bcc6f
 math_lib     gitlab.com/quant-fund/lizard-math        "v2.0.1"
-
+```
 
 
 
