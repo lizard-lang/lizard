@@ -1,6 +1,8 @@
 # Lizard 🦎
 **The Cold-Blooded Concurrency Compiler.**
 
+*This document serves as my architecture brainstorming establishing prior art.*
+
 Lizard is a zero-dependency, bare-metal x86_64 JIT compiler designed for high-performance computing, quantitative finance, and data science. It combines the elegant readability of Python with the raw execution speed of silicon.
 
 There is no Virtual Machine. There is no Garbage Collector. There is no Global Interpreter Lock (GIL). 
