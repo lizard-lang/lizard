@@ -143,7 +143,9 @@ def exampleConcurrentLizardFunction():
     }
 
 Lizard's C++ style syntax parser:
+
 ```
+
 [[alignas(64)]]
 [[packed]]
 struct StockQuote {
@@ -161,6 +163,7 @@ void exampleConcurrentLizardFunction() {
         print(f"suck it c++");
     }
 }
+
 ```
 
 
