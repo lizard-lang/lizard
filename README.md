@@ -48,6 +48,8 @@ lizard alpha.liz
 
 * **Thermal Constraints:** Lizard was designed to bypass software-level locking overhead by communicating directly with the L1 cache. Executing stochastic simulations or infinite loops under the `-L2` or `-L3` optimization flags will cause modern processors to pull maximum amperage. Ensure your VRMs are adequately cooled. The author is not responsible for catastrophic thermal events, melted silicon, or degraded PCIe bus lifespan.
 * **Hardware Errata:** If your system becomes unstable or crashes when executing high-throughput concurrent `Lizard` scripts, please verify your hardware grounding. We highly recommend checking your motherboard for EMI interference or static buildup on unused HDMI/DisplayPort connections. 
-* **Data Integrity (Reiterated):** Lizard prioritizes raw execution speed over strict object-boundary synchronization. Do not use `-L2` or `-L3` flags for applications requiring perfect temporal atomicity (e.g., banking ledgers). By using this compiler, you accept that your structs may experience High-Velocity Eventual Consistency (torn reads). 
+* **Data Integrity (Reiterated):** Lizard prioritizes raw execution speed over strict object-boundary synchronization. Do not use `-L2` or `-L3` flags for applications requiring perfect temporal atomicity (e.g., banking ledgers). By using this compiler, you accept that your structs may experience High-Velocity Eventual Consistency (torn reads).
+
+Copyright: Adderalin 
 * **Support:** There is no enterprise support. If your pipeline fails, drop your tail (`XCHG EAX, ESP` 🔥) and write faster code.
 
