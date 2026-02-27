@@ -92,7 +92,7 @@ To resolve parsing ambiguities without sacrificing compilation speed, the Lizard
 ```python
 def exampleConcurrentLizardFunction():
      do_stuff();
-     if sharedData.not_contested:
+     if sharedData.not_contested: [[likely]]
      {
           # The {} block overrides the whitespace parser.
           # The lock is deterministically acquired and released 
