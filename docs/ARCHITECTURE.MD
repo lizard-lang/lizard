@@ -243,7 +243,9 @@ def process_exchange_buffer<T>(buffer_ptr: ptr<T>, size: int32):
 ```
 
 Lizard's C++ style syntax parser:
+
 ```
+
 // Exact same AST, parsed via brace-and-semicolon dominance
 void process_exchange_buffer<T>(ptr<T> buffer_ptr, int32 size) {
     
@@ -258,6 +260,7 @@ void process_exchange_buffer<T>(ptr<T> buffer_ptr, int32 size) {
         notify_pipeline_ready();
     }
 }
+
 ```
 
 ### C. Data-Oriented Typology (The "Struct" Standard)
