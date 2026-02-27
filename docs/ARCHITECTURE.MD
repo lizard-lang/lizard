@@ -1,6 +1,6 @@
 # Lizard Architecture🦎
 
-This document serves as my architecture brainstorming.
+This document serves as my architecture brainstorming establishing prior art.
 
 # Compiling into a mmap file
 
