@@ -301,7 +301,28 @@ private:
 };
 ```
 
+## 9. The Universal Recompilation Directive (Zero ABI Breakage)
 
+Traditional compiled languages (C, C++, Rust) rely heavily on pre-compiled shared libraries (`.so`, `.dll`, `.dylib`) and static archives (`.a`, `.lib`). This reliance introduces fragile Application Binary Interface (ABI) boundaries. If a pre-compiled library was built with a different struct padding, calling convention, or compiler version than the host application, passing a memory pointer across that boundary results in catastrophic, silent memory corruption.
+
+**Lizard mathematically eliminates ABI breakage by refusing to participate in it.**
+
+### A. Recursive Source-Level JIT Compilation
+Lizard does not link against pre-compiled Lizard binaries. 
+
+When you execute `lizard main.liz`, the compiler’s dependency resolver recursively crawls every `import` statement in the project tree. It ingests the raw source code of the entire dependency graph, flattens it into a single massive Abstract Syntax Tree (AST), and JIT-compiles the entire universe simultaneously. 
+
+*   **Zero ABI Drift:** Because every dependency is compiled simultaneously by the exact same compiler instance, struct layouts, padding bytes, and calling conventions are mathematically guaranteed to perfectly align across all module boundaries.
+*   **Global Optimization & Inlining:** Because the JIT has full visibility of the entire dependency graph's source code, it can aggressively inline functions across module boundaries—an optimization that standard linkers (without LTO) cannot achieve when crossing pre-compiled `.so` boundaries.
+
+### B. Hardware-Specific Microarchitecture Targeting
+Pre-compiled libraries are typically compiled against the lowest common denominator (e.g., standard `x86_64`) to maximize compatibility, abandoning massive performance gains available on modern silicon. 
+
+Because Lizard inherently recompiles from source at execution time, it natively implements **Just-In-Time Microarchitecture Targeting**.
+*   If the script is executed on an AMD Ryzen 9 9950X3D, the compiler automatically detects AVX-512, VPCLMULQDQ, and VAES extensions, and emits hyper-optimized vectorized instructions for the entire dependency graph.
+*   The developer never has to manually specify `-march=native`. The execution environment inherently shapes the compiled geometry to perfectly match the physical silicon it is running on. 
+
+*(Note: While Lizard strictly compiles its own modules from source, it provides a safe, explicit C-ABI Foreign Function Interface (FFI) block for strictly defined interoperability with legacy C/C++ libraries when necessary).*
 
 
 
