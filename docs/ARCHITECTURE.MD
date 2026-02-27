@@ -87,18 +87,57 @@ To resolve parsing ambiguities without sacrificing compilation speed, the Lizard
 1. **Brace Dominance:** The `{` and `}` tokens dictate absolute Basic Block geometry. If the lexer encounters a `{`, it temporarily suspends whitespace-based `INDENT/DEDENT` tracking. The scope is mathematically locked until the matching `}` is consumed. 
 2. **Deterministic RAII Scoping:** Because `{}` forces a hard scope boundary, developers can arbitrarily inject anonymous blocks into Pythonic code. This allows for hyper-precise object lifetime management and deterministic RAII (e.g., dropping a 1ns uncontested spinlock mid-function) without the overhead of Python's `with` context managers.
 3. **Terminator Forgiveness:** The lexer treats the newline character `\n` as a soft statement terminator, but treats the semicolon `;` as a hard override. This allows C++ veterans to retain muscle memory without triggering syntax errors in Pythonic blocks.
+## 6. Attribute-Driven Micro-Optimization
 
-### Code Example: Valid Lizard Syntax
+While Lizard prioritizes high-throughput defaults, it recognizes that bare-metal programming requires explicit, surgical control over memory geometry and CPU pipeline behavior. To accommodate this within its Scope-Dominant Hybrid Lexer, Lizard introduces **C++-style Compiler Attributes (`[[...]]`) directly into Pythonic syntax.**
+
+This allows developers to explicitly guide the JIT compiler's code generation without relying on implicit, potentially destructive optimizations.
+
+### A. Deterministic Memory Layout (`[[packed]]`, `[[no_reorder]]`)
+When defining data structures for network protocols, FFI (Foreign Function Interface) boundaries, or strict hardware payloads, developers must guarantee exact byte placement.
+*   By default, Lizard analyzes structs for optimal cache-line packing.
+*   Applying `[[no_reorder]]` strictly enforces the developer's declared field order.
+*   Applying `[[packed]]` annihilates all compiler-injected padding bytes, forcing contiguous field alignment at the cost of potential unaligned memory access penalties.
+
+### B. Hardware Alignment (`[[alignas(N)]]`)
+Cache-line bouncing and false sharing are the absolute killers of multi-threaded throughput. Standard high-level languages abstract memory allocation, leaving alignment to the whims of the runtime's memory allocator (usually 8-byte or 16-byte boundaries). 
+
+Lizard introduces the parameterized `[[alignas(N)]]` attribute directly into its object definition syntax. This forces the compiler and the underlying `mmap` allocator to guarantee that the starting memory address of the struct, variable, or buffer is perfectly divisible by `N`. 
+
+This is structurally mandatory for:
+*   **Preventing False Sharing:** Forcing independent thread variables onto separate 64-byte L1 cache lines.
+*   **SIMD Vectorization:** Guaranteeing 32-byte or 64-byte boundaries for AVX2 and AVX-512 vector math loads.
+*   **Lock-Free Queues:** Ensuring that SPMC/MPMC ring buffer nodes do not straddle cache-line boundaries (preventing hardware tearing).
+
+### C. Branch Predictor Guidance (`[[likely]]`, `[[unlikely]]`)
+Modern CPUs utilize highly advanced branch predictors (e.g., AMD's TAGE). In high-frequency paths, developers often possess empirical knowledge about the probability of a specific branch (e.g., an error check or an uncontended lock) that the compiler cannot infer statically.
+*   Injecting `[[likely]]` or `[[unlikely]]` directly onto control flow statements (like `if` or `while`) instructs the Lizard compiler to emit optimal assembly layouts. It forces the unlikely path into a "cold" instruction section, preventing it from polluting the L1 instruction cache (L1i).
+
+### Code Example: Pythonic Syntax with Hardware Attributes
+
 ```python
+# The JIT compiler guarantees this object will always 
+# be instantiated on a strict 64-byte L1 cache-line boundary,
+# and will never inject padding bytes between the fields.
+[[alignas(64)]]
+[[packed]]
+struct StockQuote:
+    bid: fixed_decimal
+    ask: fixed_decimal
+    timestamp: int64
+
 def exampleConcurrentLizardFunction():
-     do_stuff();
-     if sharedData.not_contested: [[likely]]
-     {
-          # The {} block overrides the whitespace parser.
-          # The lock is deterministically acquired and released 
-          # strictly within this physical boundary.
-          ScopeGuard guard(sharedData.lock);
-          print(f"suck it python");
-     }
+    do_stuff();
+    
+    # Instructs the JIT to optimize the instruction cache 
+    # assuming this lock is almost always uncontended.
+    if sharedData.not_contested: [[likely]]
+    {
+        # The {} block overrides the whitespace parser.
+        # The lock is deterministically acquired and released 
+        # strictly within this physical boundary.
+        ScopeGuard guard(sharedData.lock);
+        print(f"suck it python");
+    }
 ```
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
