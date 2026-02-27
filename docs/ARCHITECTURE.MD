@@ -173,4 +173,96 @@ To fully weaponize the compiler, Lizard supports the following bare-metal attrib
 *   **`[[pure]]`:** Informs the compiler that the function has zero side effects and only depends on its inputs. Allows the JIT to aggressively memoize results or entirely eliminate redundant calls.
 *   **`[[tailcall]]`:** Forces strict Tail-Call Optimization (TCO). If the compiler cannot mathematically guarantee the function will execute without consuming a new stack frame, it throws a fatal compile-time error. Essential for lock-free state machines.
 *   **`[[naked]]`:** Instructs the JIT to emit zero function prologue or epilogue (no stack frame setup/teardown). The developer assumes absolute manual control over hardware registers. Designed for raw system-call wrappers, custom interrupt handlers, or hyper-optimized inline assembly blocks.
+
+
+## 8. Memory Topography & Compile-Time Monomorphization
+
+Lizard’s primary directive is to eliminate the cognitive overhead of manual concurrency (`std::atomic`, memory fences). The compiler’s Escape Analysis automatically injects hardware bus locks (`F0`) for CPU-bound thread collisions. 
+
+However, when interfacing directly with external hardware (PCIe, FPGAs, NIC Ring Buffers, or VRAM), developers must bypass the CPU's internal caching mechanisms.
+
+### A. Hardware IO Fencing Attributes
+To manage Memory-Mapped I/O (MMIO) without resorting to raw assembly, Lizard provides explicit cache-bypass attributes:
+
+*   **`[[writethrough]]` (Non-Temporal Store):** Instructs the compiler to emit non-temporal streaming instructions (e.g., x86 `MOVNTI`). The data is written directly to main memory or the PCIe bus, entirely bypassing the CPU's L1/L2/L3 cache hierarchy. Essential for writing to GPU framebuffers or NIC transmission queues without polluting the local CPU cache.
+*   **`[[volatile]]`:** (Strictly redefined from C). In Lizard, `[[volatile]]` does not imply atomicity. It mathematically guarantees that the compiler will *never* optimize away, reorder, or cache the read/write operation. Every access triggers a physical load/store to the memory address. Used exclusively for reading hardware status registers.
+*   **`[[barrier]]`:** Enforces a hard compiler and hardware memory fence (e.g., `MFENCE`). Guarantees that all memory operations initiated before the barrier are globally visible to the entire system (including external PCIe devices) before any subsequent instructions are executed.
+
+### B. Universal Template Monomorphization
+Dynamic typing and Object-Oriented Polymorphism (OOP `vptr` injection) destroy L1 cache alignment and prevent aggressive inlining. Lizard rejects runtime polymorphism in favor of strict, C++-style Compile-Time Monomorphization.
+
+Lizard supports full template metaprogramming seamlessly across both its Brace-Dominant and Pythonic syntax. 
+
+*   **Zero Runtime Overhead:** When a template is invoked with a specific type (e.g., `<StockMarketQuote>`), the JIT compiler generates a mathematically distinct, perfectly optimized assembly path for that specific memory layout.
+*   **Syntax Integrity:** Lizard intentionally retains the classic `<T>` bracket syntax for templates to cleanly separate compile-time monomorphization from runtime array indexing `[]`.
+
+**Example: Pythonic Template Syntax**
+```python
+# The <T> syntax imports classic C++ template power into Pythonic defs
+def process_exchange_buffer<T>(buffer_ptr: ptr<T>, size: int32):
+    
+    # Force a strict hardware read from the external NIC register
+    [[volatile]]
+    nic_status: int32 = read_hardware_register()
+    
+    if nic_status == 1: [[hot]]
+    {
+        # Stream the buffer directly to main memory, 
+        # bypassing the CPU L1 cache entirely.
+        [[writethrough]]
+        write_to_memory(buffer_ptr, size)
+        
+        # Enforce a global hardware fence before continuing
+        [[barrier]]
+        notify_pipeline_ready()
+    }
+```
+
+### C. Data-Oriented Typology (The "Struct" Standard)
+Lizard abandons the legacy Object-Oriented `class` keyword. In high-frequency computing, Data-Oriented Design (DOD) is paramount. Developers construct mathematically aligned data payloads (`struct`) and feed them through pure transformation functions, rather than building state-heavy objects. 
+
+*   **Public by Default:** All fields in a Lizard `struct` are public by default, mirroring Python's frictionless data access model. 
+*   **Explicit Privacy:** C++ developers can still enforce strict memory encapsulation by explicitly opening a `private:` block within the struct definition.
+
+**Example: Templated Pythonic Struct**
+```python
+# A generic lock-free ring buffer node, forced onto a 64-byte boundary
+[[alignas(64)]]
+struct RingBufferNode<T>:
+    sequence_id: int64
+    payload: T
+    
+    private:
+        # Internal state hidden from the consumer
+        _commit_flag: int32
+
+# Instantiating the template generates a mathematically unique memory layout
+node: RingBufferNode<StockMarketQuote>
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
