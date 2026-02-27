@@ -141,6 +141,8 @@ def exampleConcurrentLizardFunction():
         ScopeGuard guard(sharedData.lock);
         print(f"suck it python");
     }
+```
+
 
 Lizard's C++ style syntax parser:
 
