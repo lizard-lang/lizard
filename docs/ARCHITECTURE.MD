@@ -4,17 +4,32 @@
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
 
-## 1. TLB Annihilation: Compiling into `memfd` Huge Pages
+## 1. TLB Annihilation: Cross-Platform Contiguous Huge Pages
 
-Traditional C/C++ compilers (GCC, Clang) and their associated linkers (LD) strictly isolate binary sections (`.text`, `.data`, `.rodata`, `.bss`) into standard 4KB memory pages. For a high-performance application, traversing these fragmented 4KB pages results in catastrophic Translation Lookaside Buffer (TLB) misses, forcing the CPU to repeatedly walk the page tables in main memory.
+Traditional C/C++ compilers (GCC, Clang, MSVC) and their associated linkers strictly isolate binary sections (`.text`, `.data`, `.rodata`, `.bss`) into standard 4KB memory pages. For a high-performance application, traversing these fragmented 4KB pages results in catastrophic Translation Lookaside Buffer (TLB) misses, forcing the CPU to repeatedly walk the page tables in main memory.
 
-**Lizard bypasses the ELF loader entirely.** 
+**Lizard bypasses standard OS executable loaders entirely.** 
 
-Lizard compiles the Abstract Syntax Tree (AST) directly into memory using Linux `memfd_create`. 
-The execution environment explicitly requests memory in the following degradation order:
-1. **1GB Huge Pages (`MAP_HUGETLB | MAP_HUGE_1GB`)**
-2. **2MB Huge Pages (`MAP_HUGETLB | MAP_HUGE_2MB`)**
-3. **Standard 4KB Pages (Fallback)**
+Lizard compiles the Abstract Syntax Tree (AST) directly into raw memory. To achieve a TLB footprint of exactly **one entry**, the execution environment aggressively negotiates with the host OS kernel for contiguous Large/Huge Page allocations before falling back to standard 4KB pages.
+
+### OS-Specific Memory Negotiation:
+
+*   **Linux (`memfd`, `/dev/shm`, & `hugetlbfs`):** 
+    For strictly isolated processes, Lizard compiles directly into memory using `memfd_create` or anonymous `mmap`. For multi-process execution, zero-copy shared libraries, and bare-metal IPC, Lizard compiles directly into POSIX shared memory (`shm_open` via `/dev/shm`) or explicit `hugetlbfs` large-page filesystem mounts. It explicitly requests memory in the following degradation order:
+    1. 1GB Huge Pages (`MAP_HUGETLB | MAP_HUGE_1GB` or via 1GB `hugetlbfs` mount)
+    2. 2MB Huge Pages (`MAP_HUGETLB | MAP_HUGE_2MB` or via 2MB `hugetlbfs` mount)
+    3. Standard 4KB Pages (Fallback via anonymous `mmap` or standard `/dev/shm`)
+
+*   **Windows (`VirtualAlloc` API):** 
+    Lizard utilizes `VirtualAlloc` or `VirtualAlloc2` with the `MEM_LARGE_PAGES` flag (requiring `SeLockMemoryPrivilege`). By allocating raw 2MB (or system-defined large page maximums) contiguous blocks, it completely bypasses the legacy PE (Portable Executable) loading overhead of the Windows memory manager. For multi-process sharing, it leverages `CreateFileMapping` backed by the system paging file.
+
+*   **macOS / Apple Silicon (`MAP_JIT` & Superpages):** 
+    To satisfy strict ARM64 W^X (Write XOR Execute) hardware protections on M-series chips, Lizard requests anonymous memory using `mmap` combined with `MAP_JIT` and `VM_FLAGS_SUPERPAGE_SIZE_2MB`. This allows the compiler to rapidly write the opcodes and instantly toggle the memory to an executable state without fracturing the TLB.
+
+### Universal Architectural Claim (Prior Art)
+The specific OS API is an implementation detail. The fundamental architectural prior art established here is **the intentional fusion of executable machine code (`.text`) and static/mutable data (`.data`) into the largest contiguous, hardware-supported memory pages available on the host system—whether memory-mapped privately or exposed globally via shared memory/IPC file systems—entirely bypassing traditional on-disk binary format loaders (ELF, PE, Mach-O) to intentionally eliminate TLB cache-miss latency during isolated or multi-process JIT execution.** 
+
+This architecture applies to any current or future operating system, hypervisor, or bare-metal kernel implementing large, huge, or gigabyte-page contiguous memory mapping, both private and shared.
 
 ### The Contiguous Execution Matrix
 By fusing executable instructions and static data into a single 1-Gigabyte page, Lizard achieves a TLB footprint of exactly **one entry**. The CPU's Memory Management Unit (MMU) caches the page translation once, and the entire application executes without a single hardware page walk. 
