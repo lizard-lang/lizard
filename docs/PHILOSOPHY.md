@@ -26,7 +26,14 @@ Lizard operates on a "Universal Recompilation Directive." Source code is distrib
 
 Because of this, we will never implement native source-code obfuscation or control-flow flattening. Obfuscation is an architectural anti-pattern. It pollutes the L1 instruction cache and actively sabotages the CPU's branch predictor. We will not compromise a 4ns execution pipeline to provide corporate management with the illusion of IP protection. 
 
-If you must distribute proprietary algorithms without source code, compile it ahead-of-time to a standard C-ABI shared object (`.so`) and load it via our FFI. Let the community build obfuscators; the compiler remains pure.
+### C. The Modular Syscall Architecture
+Lizard does not ship with a bloated standard library attempting to encapsulate every OS networking or file system API. Baking abstractions like `std::net::socket` into the core compiler creates dogmatic bottlenecks and maintenance nightmares. 
+
+Instead, Lizard provides native primitives for direct hardware-level system calls (e.g., executing the `SYSCALL` x86 instruction directly). 
+*   **Decentralized Libraries:** Interfaces for Linux `epoll`, Windows `IOCP`, or `io_uring` are maintained as completely separate, community-driven or officially sponsored Lizard modules (e.g., managed via a `requirements.txt` style package graph). 
+*   **Zero-Cost Kernel Boundaries:** Because Lizard generates raw opcodes, dropping into a kernel system call requires zero stack-switching overhead. The compiler loads the registers and executes the trap. 
+
+The compiler remains mathematically pure; the ecosystem provides the adapters.
 
 ### 4. The Standard Library is Not a Web Browser
 Lizard will not ship with a 50-megabyte standard library containing JSON parsers, heavy HTTP clients, and bloated middleware. A massive standard library slows down compilation and encourages dependency rot.
