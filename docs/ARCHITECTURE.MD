@@ -87,6 +87,8 @@ To resolve parsing ambiguities without sacrificing compilation speed, the Lizard
 1. **Brace Dominance:** The `{` and `}` tokens dictate absolute Basic Block geometry. If the lexer encounters a `{`, it temporarily suspends whitespace-based `INDENT/DEDENT` tracking. The scope is mathematically locked until the matching `}` is consumed. 
 2. **Deterministic RAII Scoping:** Because `{}` forces a hard scope boundary, developers can arbitrarily inject anonymous blocks into Pythonic code. This allows for hyper-precise object lifetime management and deterministic RAII (e.g., dropping a 1ns uncontested spinlock mid-function) without the overhead of Python's `with` context managers.
 3. **Terminator Forgiveness:** The lexer treats the newline character `\n` as a soft statement terminator, but treats the semicolon `;` as a hard override. This allows C++ veterans to retain muscle memory without triggering syntax errors in Pythonic blocks.
+
+
 ## 6. Attribute-Driven Micro-Optimization
 
 While Lizard prioritizes high-throughput defaults, it recognizes that bare-metal programming requires explicit, surgical control over memory geometry and CPU pipeline behavior. To accommodate this within its Scope-Dominant Hybrid Lexer, Lizard introduces **C++-style Compiler Attributes (`[[...]]`) directly into Pythonic syntax.**
@@ -140,4 +142,35 @@ def exampleConcurrentLizardFunction():
         print(f"suck it python");
     }
 ```
+
+## 7. Strict Typology & The Thermal Execution Matrix
+
+Lizard aggressively rejects legacy C/C++ type ambiguity (where the bit-width of an `int` or `long` is dependent on the target architecture or compiler implementation) while simultaneously supporting Python's arbitrary-precision integers. 
+
+### A. Eradicating Type Ambiguity
+In Lizard, memory geometry is mathematically explicit. 
+Numeric types followed by a bit-width map directly to raw hardware registers. Numeric types without a bit-width dynamically allocate arbitrary-precision (BigInt) storage, trading bare-metal speed for mathematical boundlessness.
+
+*   **Integers:** `int8`, `int16`, `int32`, `int64` (Hardware). `int` (Unlimited/Heap).
+*   **Decimals (Fixed-Point):** `decimal4`, `decimal8`, `decimal16`, `decimal32`, `decimal64` (Hardware). `decimal` (Unlimited/Heap).
+*   **Floating-Point:** `float4`, `float8`, `float16`, `float32`, `float64` (IEEE 754 Hardware). `float` (Unlimited/Heap). *(Note: `float64` completely replaces the legacy `double` keyword).*
+
+### B. The Thermal Instruction Matrix (L1i Cache Control)
+Modern CPUs execute instructions optimally when the hot path remains pinned in the L1 instruction cache (L1i). Lizard introduces a **Thermal Tagging System** to explicitly control the physical layout of opcodes within the compiled `memfd` Huge Page.
+
+By applying thermal tags to control flow (`if`, `while`) or functions, developers command the JIT to physically group or banish opcodes in memory:
+
+1.  **`[[hot]]` (Alias: `[[likely]]`):** Absolute L1i cache priority. The compiler enforces that these opcodes are physically contiguous with the primary entry point. Fall-through branch prediction is hardwired here.
+2.  **`[[warm]]`:** Executed frequently, but not critical to the micro-second hot path. The compiler attempts to keep it on the same physical memory page as the hot loop, minimizing TLB strain, but will spill it adjacent if `[[hot]]` saturates the cache.
+3.  ***(Untagged)*:** Standard compiler heuristic ordering.
+4.  **`[[chill]]`:** Low-frequency execution (e.g., 1Hz telemetry loggers). The compiler physically segregates these instructions away from the hot loop to prevent L1i cache pollution.
+5.  **`[[cold]]` (Alias: `[[unlikely]]`):** "Cold Storage." Reserved for catastrophic errors, fatal exceptions, or `tail-drop` panic routing. The compiler physically appends these instructions to the absolute farthest memory address of the 1GB page, ensuring they never load into the CPU prefetcher unless a disaster occurs.
+
+### C. Advanced Hardware Control Tags (The Prior Art Arsenal)
+To fully weaponize the compiler, Lizard supports the following bare-metal attributes:
+
+*   **`[[force_inline]]` / `[[no_inline]]`:** Overrides compiler heuristics to forcibly inline (or prevent inlining) of a function, dictating exact instruction cache footprint.
+*   **`[[pure]]`:** Informs the compiler that the function has zero side effects and only depends on its inputs. Allows the JIT to aggressively memoize results or entirely eliminate redundant calls.
+*   **`[[tailcall]]`:** Forces strict Tail-Call Optimization (TCO). If the compiler cannot mathematically guarantee the function will execute without consuming a new stack frame, it throws a fatal compile-time error. Essential for lock-free state machines.
+*   **`[[naked]]`:** Instructs the JIT to emit zero function prologue or epilogue (no stack frame setup/teardown). The developer assumes absolute manual control over hardware registers. Designed for raw system-call wrappers, custom interrupt handlers, or hyper-optimized inline assembly blocks.
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
