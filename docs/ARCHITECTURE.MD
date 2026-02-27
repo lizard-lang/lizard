@@ -285,7 +285,11 @@ struct RingBufferNode<T>:
 
 # Instantiating the template generates a mathematically unique memory layout
 node: RingBufferNode<StockMarketQuote>
+```
 
+Valid Lizard Code (C++23 Style):
+
+```
 // Valid Lizard Code (C++23 Style)
 [[alignas(64)]]
 struct RingBufferNode<T> {
