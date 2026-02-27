@@ -141,7 +141,28 @@ def exampleConcurrentLizardFunction():
         ScopeGuard guard(sharedData.lock);
         print(f"suck it python");
     }
+
+Lizard's C++ style syntax parser:
 ```
+[[alignas(64)]]
+[[packed]]
+struct StockQuote {
+    decimal32 bid;
+    decimal32 ask;
+    int64 timestamp;
+};
+
+void exampleConcurrentLizardFunction() {
+    do_stuff();
+    
+    if (sharedData.not_contested) [[likely]] {
+        // Standard C++ RAII scoping works exactly as expected.
+        ScopeGuard guard(sharedData.lock);
+        print(f"suck it c++");
+    }
+}
+```
+
 
 ## 7. Strict Typology & The Thermal Execution Matrix
 
@@ -218,6 +239,24 @@ def process_exchange_buffer<T>(buffer_ptr: ptr<T>, size: int32):
     }
 ```
 
+Lizard's C++ style syntax parser:
+```
+// Exact same AST, parsed via brace-and-semicolon dominance
+void process_exchange_buffer<T>(ptr<T> buffer_ptr, int32 size) {
+    
+    [[volatile]]
+    int32 nic_status = read_hardware_register();
+    
+    if (nic_status == 1) [[hot]] {
+        [[writethrough]]
+        write_to_memory(buffer_ptr, size);
+        
+        [[barrier]]
+        notify_pipeline_ready();
+    }
+}
+```
+
 ### C. Data-Oriented Typology (The "Struct" Standard)
 Lizard abandons the legacy Object-Oriented `class` keyword. In high-frequency computing, Data-Oriented Design (DOD) is paramount. Developers construct mathematically aligned data payloads (`struct`) and feed them through pure transformation functions, rather than building state-heavy objects. 
 
@@ -238,6 +277,16 @@ struct RingBufferNode<T>:
 
 # Instantiating the template generates a mathematically unique memory layout
 node: RingBufferNode<StockMarketQuote>
+
+// Valid Lizard Code (C++23 Style)
+[[alignas(64)]]
+struct RingBufferNode<T> {
+    int64 sequence_id;
+    T payload;
+    
+private:
+    int32 _commit_flag;
+};
 ```
 
 
