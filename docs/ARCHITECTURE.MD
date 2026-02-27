@@ -322,7 +322,14 @@ Because Lizard inherently recompiles from source at execution time, it natively 
 *   If the script is executed on an AMD Ryzen 9 9950X3D, the compiler automatically detects AVX-512, VPCLMULQDQ, and VAES extensions, and emits hyper-optimized vectorized instructions for the entire dependency graph.
 *   The developer never has to manually specify `-march=native`. The execution environment inherently shapes the compiled geometry to perfectly match the physical silicon it is running on. 
 
-*(Note: While Lizard strictly compiles its own modules from source, it provides a safe, explicit C-ABI Foreign Function Interface (FFI) block for strictly defined interoperability with legacy C/C++ libraries when necessary).*
+### C. The Modular Syscall Architecture
+Lizard does not ship with a bloated standard library attempting to encapsulate every OS networking or file system API. Baking abstractions like `std::net::socket` into the core compiler creates dogmatic bottlenecks and maintenance nightmares. 
+
+Instead, Lizard provides native primitives for direct hardware-level system calls (e.g., executing the `SYSCALL` x86 instruction directly). 
+*   **Decentralized Libraries:** Interfaces for Linux `epoll`, Windows `IOCP`, or `io_uring` are maintained as completely separate, community-driven or officially sponsored Lizard modules (e.g., managed via a `requirements.txt` style package graph). 
+*   **Zero-Cost Kernel Boundaries:** Because Lizard generates raw opcodes, dropping into a kernel system call requires zero stack-switching overhead. The compiler loads the registers and executes the trap. 
+
+The compiler remains mathematically pure; the ecosystem provides the adapters.
 
 
 
