@@ -331,7 +331,19 @@ Instead, Lizard provides native primitives for direct hardware-level system call
 
 The compiler remains mathematically pure; the ecosystem provides the adapters.
 
+### D. Decentralized Dependency Management (Zero-Registry)
+Lizard refuses to host or maintain a centralized package registry (e.g., `npm`, `crates.io`, `PyPI`). Centralized registries introduce supply-chain vulnerabilities, namespace squatting, and massive infrastructural maintenance burdens. 
 
+Lizard implements **Direct Git-Link Resolution** via a brutally simple `lizard.req` manifest file. 
+
+To import a module, the developer must explicitly define the namespace, the direct repository URL, and the immutable Git commit hash or release tag.
+
+**Example `lizard.req` format:**
+```text
+# <namespace>  <git_repository_url>                     <commit_hash_or_tag>
+sockets      github.com/lizard-lang/sockets           "v1.1.12"
+dll-loader   github.com/lizard-lang/dll-loader        4630bb8f125146662d41aea1a10c5bbccc1bcc6f
+math_lib     gitlab.com/quant-fund/lizard-math        "v2.0.1"
 
 
 
