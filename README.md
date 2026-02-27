@@ -3,6 +3,8 @@
 
 *This document serves as my architecture brainstorming establishing prior art.*
 
+Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
+
 Lizard is a zero-dependency, bare-metal x86_64 JIT compiler designed for high-performance computing, quantitative finance, and data science. It combines the elegant readability of Python with the raw execution speed of silicon.
 
 There is no Virtual Machine. There is no Garbage Collector. There is no Global Interpreter Lock (GIL). 
