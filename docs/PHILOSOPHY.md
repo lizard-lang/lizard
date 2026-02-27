@@ -26,7 +26,7 @@ Lizard operates on a "Universal Recompilation Directive." Source code is distrib
 
 Because of this, we will never implement native source-code obfuscation or control-flow flattening. Obfuscation is an architectural anti-pattern. It pollutes the L1 instruction cache and actively sabotages the CPU's branch predictor. We will not compromise a 4ns execution pipeline to provide corporate management with the illusion of IP protection. 
 
-### C. The Modular Syscall Architecture
+### 4. The Modular Syscall Architecture
 Lizard does not ship with a bloated standard library attempting to encapsulate every OS networking or file system API. Baking abstractions like `std::net::socket` into the core compiler creates dogmatic bottlenecks and maintenance nightmares. 
 
 Instead, Lizard provides native primitives for direct hardware-level system calls (e.g., executing the `SYSCALL` x86 instruction directly). 
@@ -35,17 +35,17 @@ Instead, Lizard provides native primitives for direct hardware-level system call
 
 The compiler remains mathematically pure; the ecosystem provides the adapters.
 
-### 4. The Standard Library is Not a Web Browser
+### 5. The Standard Library is Not a Web Browser
 Lizard will not ship with a 50-megabyte standard library containing JSON parsers, heavy HTTP clients, and bloated middleware. A massive standard library slows down compilation and encourages dependency rot.
 
 We provide the mathematical primitives, the hardware IO topography tags (`[[writethrough]]`), fixed-point decimal scaling, lock-free ring buffers, and OS memory interfaces. The core stays ruthlessly lean. If you need to serve millions of HTTP requests, you use a dedicated, purpose-built engine like *Lizard on Tails*. 
 
-### 5. Honest "Zero-Cost" Abstractions
+### 6. Honest "Zero-Cost" Abstractions
 We reject the legacy industry definition of "Zero-Cost," which often silently injects hidden virtual table pointers (`vptr`) or relies on catastrophic stack unwinding during exceptions. 
 
 If a feature in Lizard claims to be zero-cost, it means it compiles down to exactly zero hardware cycles on the hot path. Lizard strictly bans asynchronous stack-unwinding exceptions. We utilize native monadic error handling (similar to `std::expected`). Yes, it introduces a conditional branch. But thanks to modern CPU branch predictors, the happy-path is functionally free, and the worst-case failure latency is mathematically capped. 
 
-### 6. Drop the Tail
+### 7. Drop the Tail
 Software should fail cleanly and violently. 
 When a thread encounters an unrecoverable state (a null pointer, a severed socket, a corrupted memory pool), it should not gracefully unwind its stack, execute 40 destructors, and write a polite XML crash report while the rest of the application hangs. 
 
