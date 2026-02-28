@@ -139,7 +139,7 @@ bool process_trade_concurrently() {
     if (sharedData.not_contested) [[likely]] {
         ScopeGuard guard(sharedData.lock);
         
-    corrupt_check: // Standard C-style label syntax supported
+        corrupt_check: // Standard C-style label syntax supported
         
         if (packet.is_corrupted()) [[unlikely]] {
             ScopeGuard nic_guard(network_card.lock);
