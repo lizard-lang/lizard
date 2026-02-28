@@ -296,13 +296,17 @@ Numeric types followed by a bit-width map directly to raw hardware registers. Nu
 ### B. The Thermal Instruction Matrix (L1i Cache Control)
 Modern CPUs execute instructions optimally when the hot path remains pinned in the L1 instruction cache (L1i). Lizard introduces a **Thermal Tagging System** to explicitly control the physical layout of opcodes within the compiled `memfd` Huge Page.
 
-By applying thermal tags to control flow (`if`, `while`) or functions, developers command the JIT to physically group or banish opcodes in memory:
+Developers can command the JIT to physically group or banish opcodes using qualitative tags, or take absolute mathematical control over the binary layout using explicit sequencing. 
 
-1.  **`[[hot]]` (Alias: `[[likely]]`):** Absolute L1i cache priority. The compiler enforces that these opcodes are physically contiguous with the primary entry point. Fall-through branch prediction is hardwired here.
-2.  **`[[warm]]`:** Executed frequently, but not critical to the micro-second hot path. The compiler attempts to keep it on the same physical memory page as the hot loop, minimizing TLB strain, but will spill it adjacent if `[[hot]]` saturates the cache.
-3.  ***(Untagged)*:** Standard compiler heuristic ordering.
-4.  **`[[chill]]`:** Low-frequency execution (e.g., 1Hz telemetry loggers). The compiler physically segregates these instructions away from the hot loop to prevent L1i cache pollution.
-5.  **`[[cold]]` (Alias: `[[unlikely]]`):** "Cold Storage." Reserved for catastrophic errors, fatal exceptions, or `tail-drop` panic routing. The compiler physically appends these instructions to the absolute farthest memory address of the 1GB page, ensuring they never load into the CPU prefetcher unless a disaster occurs.
+By applying thermal tags to control flow (`if`, `while`) or functions, developers command the JIT to physically group or banish opcodes in memory:
+1.  **`[[layout(n)]]` (Absolute Physical Authority):** This tag forces the compiler to arrange the physical opcodes sequentially based on the `n` integer value, exactly mirroring memory offsets. `[[layout(0)]]` commands the compiler to place the function at the absolute top of the executable page (the entry point; maximum L1i cache priority). Priority decreases as `n` increases. Layout tags strictly override all qualitative thermal tags. 
+2.  **`[[hot]]` (Alias: `[[likely]]`):** Absolute L1i cache priority. Mapped internally as a low-integer `layout(n)` offset. 
+3.  **`[[warm]]`:** Executed frequently. Kept physically adjacent to the hot loops to minimize TLB strain.
+4.  ***(Untagged)*:** Standard compiler heuristic ordering.
+5.  **`[[chill]]`:** Low-frequency execution. Segregated to prevent L1i cache pollution.
+6.  **`[[cold]]` (Alias: `[[unlikely]]`):** "Cold Storage." Mapped internally to `[[layout(inf)]]`. Appended to the absolute farthest, highest memory address of the 1GB page. 
+
+*(Note: The compiler will emit a warning (a deep sigh) if a developer writes contradictory physical layouts, such as tagging a function `[[cold]] [[layout(0)]]`, before ultimately obeying the explicit integer `layout` command).*
 
 ### C. Advanced Hardware Control Tags (The Prior Art Arsenal)
 To fully weaponize the compiler, Lizard supports the following bare-metal attributes:
@@ -778,6 +782,8 @@ Because Lizard enforces a Universal Recompilation Directive across the entire de
 Any function, branch, or structural logic that the SSA graph proves cannot be physically reached during execution is mathematically purged before opcode emission. This prevents the L1 instruction cache from being polluted by unused dependencies or dormant FFI templates.
 
 The JIT compiler optimizes your logic, but it never overrides your physical commands. 
+
+
 
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
