@@ -672,7 +672,7 @@ def process_tick(price: dec32, size: int16):
     {
         total_volume: int64 = size * current_multiplier + previous_volume
     }
-
+```
 
 ## 12. Zero-Cost Static Reflection
 
