@@ -783,6 +783,26 @@ Any function, branch, or structural logic that the SSA graph proves cannot be ph
 
 The JIT compiler optimizes your logic, but it never overrides your physical commands. 
 
+### D. Explicit Hardware Mandates (`[[unroll]]`, `[[vectorize]]`)
+Legacy C++ compilers (like MSVC) treat `#pragma unroll` as a polite suggestion, often refusing to unroll loops based on opaque, internal cache-heuristic equations. This forces systems engineers into the miserable practice of manually copy-pasting loop logic 50 times in the source code.
+
+Lizard treats optimization tags as absolute physical mandates. If the compiler cannot execute the mandate exactly as requested, it will generate the closest physical equivalent, emit a compiler warning (a sigh), and proceed. 
+
+*   **`[[unroll(n)]]`:** Instructs the AST to physically unroll the loop exactly `n` times. If the developer explicitly requests `[[unroll(50)]]`, the compiler will emit 50 sequential, branchless blocks of instructions into the L1 cache. 
+    *   **The Pragmatic Fallback:** If the JIT's `constexpr` folding or SSA analysis mathematically proves the loop will only ever execute 35 times, it will not break the build. It will intelligently truncate the unroll to exactly 35, emit a compiler warning (a sigh) about the developer's math, and proceed with the optimized emission. 
+*   **`[[vectorize]]`:** A strict command instructing the JIT to compile the loop using the host CPU's widest available SIMD extensions (e.g., AVX-512, NEON). If the data geometry within the loop fundamentally cannot be vectorized (e.g., it contains complex branching or data dependencies), the compiler will fall back to standard scalar execution, emit a warning that the geometry is flawed, and proceed. 
+
+**Example: Explicit Loop Mandates**
+```python
+# The compiler will attempt to AVX-512 vectorize this loop.
+# It will physically write the instructions 64 times in a row,
+# completely eliminating the loop counter and branch prediction penalty.
+[[vectorize]]
+[[unroll(64)]]
+for unit in dead_units:
+    unit.render_flag = 0
+```
+
 
 
 
