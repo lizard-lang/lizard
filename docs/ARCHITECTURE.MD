@@ -790,8 +790,30 @@ Lizard treats optimization tags as absolute physical mandates. If the compiler c
 
 *   **`[[unroll(n)]]`:** Instructs the AST to physically unroll the loop exactly `n` times. If the developer explicitly requests `[[unroll(50)]]`, the compiler will emit 50 sequential, branchless blocks of instructions into the L1 cache. 
     *   **The Pragmatic Fallback:** If the JIT's `constexpr` folding or SSA analysis mathematically proves the loop will only ever execute 35 times, it will not break the build. It will intelligently truncate the unroll to exactly 35, emit a compiler warning (a sigh) about the developer's math, and proceed with the optimized emission. 
+
 *   **`[[vectorize]]` (Explicit Opt-In SIMD):** By default, Lizard assumes standard scalar execution to guarantee predictable memory controller behavior and prevent SIMD-starvation from Gather/Scatter cache misses. Auto-vectorization is disabled. Applying `[[vectorize]]` is a strict command instructing the JIT to compile the loop using the host CPU's widest available SIMD extensions (e.g., AVX-512). If the geometry cannot be vectorized, the compiler falls back to scalar, sighs, and proceeds.
-*   **`[[prefetch(offset)]]`:** Modern CPUs attempt to guess memory access patterns (Hardware Prefetching). In complex, non-linear models (e.g., Binary Search Tree traversals), the hardware prefetcher fails, resulting in catastrophic L3 cache misses. This tag allows the developer to explicitly emit a software prefetch instruction (e.g., x86 `PREFETCHT0`). The `offset` parameter dictates exactly how many bytes ahead the compiler should instruct the memory controller to fetch data into the L1 cache before the loop iteration executes. 
+
+*   **`[[prefetch(lines=3, locality=1)]]`:** Modern CPUs attempt to guess memory access patterns. In complex, non-linear models or high-velocity lock-free queues, the hardware prefetcher fails, resulting in catastrophic cache misses. This tag allows the developer to explicitly emit a software prefetch instruction (e.g., x86 `PREFETCHT0`, `PREFETCHT2`). 
+    *   `lines`: Dictates exactly how many 64-byte hardware cache lines ahead the compiler should instruct the memory controller to fetch data. *Defaults to 3 cache lines (192 bytes), the empirical mathematical sweet-spot to cover DDR5 RAM retrieval latency before execution.*
+    *   `locality`: Exposes explicit control over the cache hierarchy.
+        *   `1` = Hint to L1 cache (Data needed immediately, highest priority). *Default.*
+        *   `2` = Hint to L2 cache (Data needed soon).
+        *   `3` = Hint to L3 cache (Data needed in the future. Prevents L1 pollution in ultra-high-throughput SPMC queues).
+
+**Example: The 35M/s Ring Buffer Hot Path**
+```python
+# The compiler verifies the logic can be executed purely via CMOV.
+[[branchless]]
+def process_queue_node(current_index: int64) -> int64:
+    # Explicitly prefetch data 8 cache lines ahead, but restrict it to 
+    # the L3 cache. This guarantees the data is off the main RAM bus 
+    # without violently evicting the immediate working set from L1.
+    [[prefetch(8, 3)]]
+    future_node: int64 = ring_buffer[current_index + 8]
+    
+    return process_node(ring_buffer[current_index])
+```
+
 *   **`[[branchless]]`:** A strict architectural mandate. Instructs the compiler to mathematically eliminate conditional branches (`Jcc` instructions) within a block, replacing them entirely with bitwise arithmetic and conditional moves (e.g., x86 `CMOV`). If the logic fundamentally cannot be resolved without a jump, the compiler emits a fatal compile-time error. This guarantees a code block is mathematically immune to branch misprediction latency.
 
 **Example: Explicit Loop Mandates**
