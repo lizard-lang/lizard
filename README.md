@@ -1,3 +1,5 @@
+Status: Pre-Alpha / Architectural Specification. The engine is currently being forged in Crucible.
+
 # Lizard 🦎
 **The Cold-Blooded Concurrency Compiler.**
 
