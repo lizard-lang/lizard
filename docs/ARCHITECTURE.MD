@@ -554,6 +554,35 @@ void link_nodes(TreeNode parent, TreeNode child) {
 
 As you can see, Lizard solves the double ref-counting problem elegantly.
 
+### D. Deterministic Collections (`[]` Arrays)
+Lizard provides the syntactic frictionless joy of Python lists (`[]`), but completely rejects Python's underlying architecture (which scatters pointers randomly across the heap). 
+
+When a developer initializes an array `quote_list = []`, the compiler intrinsically treats it as a dynamically resizing, **contiguous memory arena** (similar to a highly optimized C++ `std::vector`, but tightly integrated into the JIT).
+
+**The Allocation Physics:**
+*   **Contiguous by Default:** Objects appended to the list (`quote_list.push(quote)`) are physically packed adjacent to each other in memory, guaranteeing perfect L1/L2 cache prefetching during iteration. 
+*   **Hidden `malloc`, Explicit Control:** The compiler automatically handles the underlying `mmap` / `malloc` arena expansion. However, to prevent the latency spikes associated with dynamic reallocation (e.g., the array doubling in size and copying memory mid-loop), developers can explicitly pre-allocate the hardware arena using a native method.
+
+**Example: Zero-Allocation Hot Pathing**
+```python
+# The compiler inherently knows this is an array of contiguous StockQuotes.
+quote_list = []
+
+# Developer reads the required size from an IO source
+quotes_to_allocate: int64 = file.read_size()
+
+# EXPLICIT CONTROL: The developer pre-allocates the exact memory block required.
+# This mathematically guarantees that the subsequent loop will execute 
+# exactly zero `malloc` or `mmap` system calls.
+quote_list.reserve(quotes_to_allocate)
+
+[[unroll(4)]]
+for i in range(quotes_to_allocate):
+    # Pure O(1) memory pointer math. Zero allocation overhead.
+    quote_list.push(parse_quote())
+```
+
+
 ## 11. Bit Twiddling, Quantization, & Absolute Geometry
 
 In low-level systems (HFT protocols, custom network framing) and modern AI inference engines, developers frequently require exact bit-width precision that does not align with standard 32 or 64-bit hardware boundaries. 
@@ -842,11 +871,160 @@ def process_bbo_update(bid: int32, ask: int32) -> int32:
     return ask if bid > ask else bid
 ```
 
+*   **`[[<arch>:<register>]]` (Register Allocation Mandate):** The ultimate expression of the "Not a Nanny" philosophy. Developers can bypass the compiler's SSA Register Graph Coloring algorithm and manually bind a variable to a specific physical hardware transistor. 
+    *   Unlike dropping into raw `asm` blocks (which blinds the compiler and forces stack-spilling), this tag keeps the variable fully visible within the AST. The compiler simply hardwires the allocation and maps the rest of the surrounding logic around it. 
+    *   If the requested register is mathematically impossible to allocate (e.g., it is required by the System V ABI for a function call occurring in the same scope), the compiler will emit a fatal error.
+
+**Example: Physical Transistor Binding**
+```python
+def hyper_optimized_math(b: int32, c: int32) -> int32:
+    # Forces the result directly into the x86 EAX accumulator register,
+    # or the PowerPC r0 register, depending on the compilation target.
+    # The AST completely bypasses dynamic graph-coloring for this variable.
+    [[x86:eax]] [[powerpc:r0]] 
+    a: int32 = b + c
+    
+    return a
+```
+
+
 
 ### Why this is the absolute peak of the language:
 You can throw away `CustomIntrinsics.hpp` because the compiler *is* the intrinsics library now. 
 
 You no longer have to write unreadable `_mm512_loadu_si512()` Intel intrinsic spaghetti code just to get the CPU to do what you want. You write clean, Pythonic math, slap `[[vectorize]]` or `[[branchless]]` on top of it, and the Lizard JIT physically manipulates the silicon to match your will. 
+
+## E. Hardware Status Flag Introspection
+Standard high-level languages abstract away the CPU's internal condition codes (`Carry`, `Overflow`, `Zero`, `Sign`), forcing developers to write slow, redundant mathematical bounds-checking. The physical Arithmetic Logic Unit (ALU) already calculates and stores this exact state for free during the instruction.
+
+Lizard provides native, zero-cost introspection of the physical ALU via compiler-injected, **architecture-specific intrinsic namespaces**. 
+
+Lizard intentionally refuses to provide a "generic" cross-platform flag wrapper (e.g., `CPU.overflow`). Different architectures handle mathematical states differently (e.g., PowerPC's `OV` vs. `SO` Summary Overflow). Providing a generic alias would force the compiler to guess the developer's intent. Instead, developers must explicitly query the hardware they are targeting.
+
+*   **Explicit Silicon Queries:** Developers read the physical flags using raw architecture namespaces: `CPU.x86.flags.OF`, `CPU.arm.flags.V`, `CPU.ppc.flags.SO`. 
+*   **The Volatility Capture:** Because the physical flags register is overwritten by almost every mathematical operation, developers must capture the flag state immediately after the target operation into a standard boolean register.
+
+**Example: Zero-Cost x86 Overflow Detection**
+```python
+def secure_math_x86(b: int64, c: int64) -> int64:
+    # 1. The hardware executes the ADD instruction. 
+    # The CPU natively updates its internal EFLAGS register for free.
+    a: int64 = b + c
+    
+    # 2. We instantly capture the physical silicon state before it is overwritten.
+    # The compiler emits SETO (Set if Overflow) and SETC (Set if Carry).
+    # If this script is executed on an ARM processor, the JIT emits a fatal error.
+    did_overflow: bool = CPU.x86.flags.OF
+    did_carry: bool = CPU.x86.flags.CF
+
+    if did_overflow or did_carry: [[unlikely]]
+        gtfo abort_math
+        
+    return a
+**Cross-Platform Support:**
+If a developer requires a math function to run across multiple architectures, they do not rely on generic flag aliases. They utilize Lizard's compile-time evaluation to conditionally emit the correct physical block:
+
+```python
+def secure_math(b: int64, c: int64) -> int64:
+    a: int64 = b + c
+    
+    # The JIT compiler statically strips the dead paths at compile-time.
+    [[constexpr_if]] CPU.arch == "x86_64":
+        if CPU.x86.flags.OF: gtfo abort_math
+    [[constexpr_elif]] CPU.arch == "aarch64":
+        if CPU.arm.flags.V: gtfo abort_math
+    [[constexpr_else]]:
+        # Fallback to slow software math for unknown architectures
+        if (b > 0 and c > int64.max - b): gtfo abort_math
+
+    return a
+
+    # The targeted unwind destination, safely scoped within the function.
+    label abort_math:
+        log_hardware_fault("Catastrophic integer overflow detected.")
+        return 0
+```
+
+### F. Absolute Memory Addressing (MMIO & GPIOs)
+To fully replace C in embedded systems, custom robotics, and FPGA programming, a language must allow developers to intentionally read and write to raw, hardcoded physical memory addresses (Memory-Mapped I/O). 
+
+Lizard achieves this without requiring unsafe `reinterpret_cast` logic or external C wrappers. Developers can instantiate a hardware pointer by directly casting an integer literal to a typed pointer, combining it with the `[[volatile]]` and `[[writethrough]]` tags defined in Section 8. 
+
+**Example: Embedded GPIO Pin Toggling**
+```python
+# The developer manually defines the hardware registry address for the GPIO bus.
+constexpr GPIO_BASE: int64 = 0x3F200000
+
+def toggle_hardware_pin():
+    # Statically cast the integer address to a volatile 32-bit hardware pointer.
+    # The compiler guarantees this memory read/write will never be cached or optimized away.
+    [[volatile]]
+    gpio_register: ptr[uint32] = (ptr[uint32])GPIO_BASE
+    
+    # Flip the 5th bit to send a physical electrical signal to the hardware pin.
+```
+
+### Why this is the perfect closer:
+It proves the compiler scales all the way down. 
+*   **HFT Quants:** They use `[[prefetch(3,3)]]` and `StockQuote._members` reflection.
+*   **AI Researchers:** They use `float4` and `[[vectorize]]`.
+*   **Embedded Hackers (Barry):** They use `ptr[uint32] = (ptr[uint32])0x3F200000` to literally flip electricity on and off. 
+
+## 15. The Bare-Metal Escape Hatch: Allocators & FFI
+
+Lizard’s primary directive is to provide deterministic, zero-overhead memory physics natively within the language. However, to truly serve as a foundational orchestration layer for enterprise systems, Lizard must permit power users to entirely override the compiler's memory manager and interface cleanly with legacy ecosystems. 
+
+### A. Custom Memory Allocators (The Arena Override)
+Standard OS-level memory allocators (`malloc`, `mmap`) often introduce global kernel spinlocks, creating catastrophic thread-contention in high-frequency architectures. 
+
+Lizard allows developers to explicitly override the underlying memory manager for specific types, arrays, or entire architectural blocks by binding them to custom allocator functions (e.g., Thread-Local Slab Allocators, `jemalloc`, or `tcmalloc`).
+
+**Example: The Custom Arena**
+```python
+# The developer manually defines a bare-metal memory allocator interface
+[[c_abi]] def custom_slab_allocate(size: int64) -> ptr[uint8]
+[[c_abi]] def custom_slab_free(p: ptr[uint8])
+
+# The struct is physically bound to the custom allocator.
+# When the JIT instantiates this object, it bypasses the OS 
+# and directly invokes `custom_slab_allocate`.
+[[allocator(custom_slab_allocate, custom_slab_free)]]
+struct HighFrequencyNode:
+    data: int64
+    next: ptr[HighFrequencyNode]
+```
+
+### B. The C/C++ Foreign Function Interface (FFI)
+Lizard operates on a Universal Recompilation Directive for its native code, but it acknowledges the reality of the legacy world. Developers can seamlessly invoke pre-compiled C/C++ shared libraries (`.so`, `.dll`) with mathematically zero overhead. 
+
+*   **Zero-Cost Context:** Because Lizard natively generates x86_64 machine code, crossing the FFI boundary does not require stack-switching, Pythonic GIL management, or intermediate JNI wrappers. The compiler simply loads the exact hardware registers specified by the System V AMD64 ABI (or Windows x64 ABI) and executes a raw `CALL` instruction. 
+*   **Struct Parity:** Because Lizard structs default to strict, literal C-style memory layouts (Section 6A), developers can pass memory pointers (`ptr[T]`) directly into C++ libraries without requiring costly serialization or layout translation.
+
+### C. Language Interoperability (e.g., Python `nanobind`)
+Lizard is designed to be the hyper-fast execution core that sits underneath higher-level analysis languages. Because Lizard's structs are perfectly aligned POD (Plain Old Data) and lack Object-Oriented `vptr` bloat, they mathematically perfectly align with 1-copy integration frameworks like C++ `nanobind` or `pybind11`. 
+
+A 64-byte `StockQuote` struct generated by Lizard can be passed instantly across a memory boundary into a Python data-science environment without requiring any translation layer, allowing analysts to interact with bare-metal data streams inside a Jupyter Notebook.
+
+## 16. Enterprise Distribution & Pre-Compilation
+
+Lizard’s foundational architecture is built entirely upon the **Universal Recompilation Directive** (JIT compiling directly on the host silicon to guarantee perfect ABI alignment and microarchitecture targeting). 
+
+However, we acknowledge the reality of enterprise software distribution. Not every company wants to distribute their proprietary algorithms in raw plaintext source code, and not every end-user wants to install the Lizard toolchain to execute a program. To support enterprise deployment without resorting to the architectural anti-pattern of code obfuscation, Lizard provides two explicit distribution compilation targets.
+
+### A. The Cryptographic JIT Payload (`liz build --secure`)
+For organizations that want to maintain the absolute performance benefits of Just-In-Time microarchitecture targeting while protecting their intellectual property, Lizard offers the Secure Payload target.
+
+*   The compiler bundles the entire dependency graph (source code) and encrypts it using standard AES cryptography.
+*   It generates a standalone, self-extracting executable (`.exe` / ELF binary). 
+*   **Execution:** When run on the target machine, the executable prompts for the AES decryption key (via `stdin`, environment variable, or secure keystore). The payload decrypts directly into memory, executes the standard Lizard JIT compiler against the host silicon, and jumps the instruction pointer. The source code never touches the target machine's physical hard drive.
+
+### B. Raw Ahead-Of-Time (AOT) Emission (`liz build --aot`)
+For situations where a JIT engine is strictly prohibited (e.g., Apple iOS, game console environments, or heavily restricted corporate servers), Lizard provides a raw Ahead-Of-Time compilation escape hatch.
+
+*   The developer explicitly defines a target architecture (e.g., `--target=zen4` or `--target=x86_64_generic`).
+*   The compiler executes its standard AST and SSA passes, but instead of writing opcodes to a `memfd` execution block, it emits a standard binary artifact (`.exe`, `.so`, `.dll`). 
+*   **The Pragmatic Warning:** By executing an AOT build, the developer intentionally forfeits Lizard's dynamic microarchitecture targeting and `constexpr` runtime I/O capabilities. The code will execute as a standard, static binary. Lizard maintainers take absolutely zero responsibility for ABI mismatches or generic-silicon latency penalties incurred by using this legacy distribution model. Lizard is a JIT compiler first; AOT is provided strictly as a pragmatic fallback.
+
 
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
