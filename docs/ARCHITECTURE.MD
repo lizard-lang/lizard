@@ -4,6 +4,13 @@
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
 
+### 0. The Principle of Deterministic Performance
+Lizard is a compiler, not a heuristic guessing engine. We fundamentally reject the paradigm where a compiler silently rearranges your memory geometry or ignores your caching instructions because an opaque, slow internal algorithm "knows better." 
+
+If you want a massive static analyzer to profile your branch predictions and calculate optimal function inlining thresholds, you should build that as a separate, community-driven tool. That tool can then read your telemetry and inject explicit `[[force_inline]]` or `[[hot]]` tags directly into your Lizard source code. 
+
+The compiler’s job is not to guess your intent; its job is to execute the tags you provide with absolute, unyielding hardware physics. Compilation must remain blistering fast, and performance must remain completely deterministic.
+
 ## 1. TLB Annihilation: Cross-Platform Contiguous Huge Pages
 
 Traditional C/C++ compilers (GCC, Clang, MSVC) and their associated linkers strictly isolate binary sections (`.text`, `.data`, `.rodata`, `.bss`) into standard 4KB memory pages. For a high-performance application, traversing these fragmented 4KB pages results in catastrophic Translation Lookaside Buffer (TLB) misses, forcing the CPU to repeatedly walk the page tables in main memory.
@@ -198,11 +205,12 @@ While Lizard prioritizes high-throughput defaults, it recognizes that bare-metal
 
 This allows developers to explicitly guide the JIT compiler's code generation without relying on implicit, potentially destructive optimizations.
 
-### A. Deterministic Memory Layout (`[[packed]]`, `[[no_reorder]]`)
-When defining data structures for network protocols, FFI (Foreign Function Interface) boundaries, or strict hardware payloads, developers must guarantee exact byte placement.
-*   By default, Lizard analyzes structs for optimal cache-line packing.
-*   Applying `[[no_reorder]]` strictly enforces the developer's declared field order.
-*   Applying `[[packed]]` annihilates all compiler-injected padding bytes, forcing contiguous field alignment at the cost of potential unaligned memory access penalties.
+### A. Deterministic Memory Layout (`[[packed]]`, `[[reorder]]`)
+Lizard never silently reorders struct fields. The order declared in the source code is the exact mathematical geometry instantiated in RAM. When defining data structures for network protocols, FFI boundaries, or strict hardware payloads, developers must have absolute geometric authority without relying on `static_assert` paranoia.
+
+*   **Default Behavior:** Struct fields are laid out exactly as written. The compiler injects standard hardware alignment padding between fields to prevent unaligned access penalties, but it will never change the field sequence. 
+*   **`[[reorder]]`:** Explicitly commands the compiler to mathematically analyze the struct and automatically reorder the fields (typically largest-to-smallest) to perfectly pack them into the tightest possible L1 cache-line footprint, minimizing padding waste. This allows developers to group fields logically in the source code (e.g., `bid` next to `ask`) without paying a structural layout penalty.
+*   **`[[packed]]`:** Annihilates all compiler-injected padding bytes, forcing contiguous byte-to-byte field alignment exactly as written. This is mandatory for raw network packet parsing, but introduces potential hardware penalties for unaligned memory access.
 
 ### B. Hardware Alignment (`[[alignas(N)]]`)
 Cache-line bouncing and false sharing are the absolute killers of multi-threaded throughput. Standard high-level languages abstract memory allocation, leaving alignment to the whims of the runtime's memory allocator (usually 8-byte or 16-byte boundaries). 
