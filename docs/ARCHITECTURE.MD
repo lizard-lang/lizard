@@ -550,9 +550,63 @@ void link_nodes(TreeNode parent, TreeNode child) {
 
 As you can see, Lizard solves the double ref-counting problem elegantly.
 
+## 11. Bit Twiddling, Quantization, & Absolute Geometry
 
+In low-level systems (HFT protocols, custom network framing) and modern AI inference engines, developers frequently require exact bit-width precision that does not align with standard 32 or 64-bit hardware boundaries. 
 
+Lizard solves this natively at the syntax and AST level, explicitly supporting both high-frequency state packing and AI weight quantization.
 
+### A. The `<Type>N` Arbitrary Precision Syntax
+Lizard allows the developer to explicitly define numeric primitives of *any* arbitrary bit-width directly in the type signature (e.g., `int24`, `uint13`, `float4`, `dec7`). *(Note: `dec` is aliased to `decimal` via the standard library `using` directive).*
+
+*   **Integers (`intN`, `uintN`):** The compiler allocates the smallest hardware-addressable block and silently injects the necessary bit-masks (e.g., `& 0xFFFFFF` for `uint24`) on all operations.
+*   **AI Quantization & Exotics (`float4`, `udec16`):** Lizard natively supports sub-byte and exotic numeric types. It introduces `ufloat` (Unsigned Float) and `udecimal` to support modern, sign-stripped AI weight packing. 
+*   **Struct Compression:** This allows developers to easily pack highly specific data—such as compressing 4 distinct Option Greeks into a perfect 8-byte payload using `dec16`—without writing manual shift logic.
+
+### B. Hardware Intrinsics vs. Emulation Fallback
+Because Lizard is not a nanny, developers are free to define mathematically bizarre bit-widths (e.g., `float3`). 
+
+If a user-defined numeric width directly maps to existing silicon hardware intrinsics (e.g., standard `fp8` AI formats, or native IEEE 754), the compiler executes them natively on the FPU or AVX registers at zero cost.
+
+If a developer defines a bit-width that physical hardware does not natively support, the JIT compiler will not throw an error. It will automatically synthesize the exact mantissa/exponent logic via slow, multi-cycle software emulation. 
+
+**The Edge Cases:**
+If an engineer pushes the boundaries to absolute absurdity, the compiler implements rigid structural decay:
+*   **3-Bit Float (`float3`):** Resolves as an implicit `ufloat` (no bits left for the sign).
+*   **2-Bit Float (`float2`):** Devolves into raw state combinations (`0.0`, `0.1`, `1.0`, `1.1`).
+*   **1-Bit Float (`float1`):** Devolves mathematically into an integer (`0` or `1`). You asked for it. 
+
+### C. Contiguous Bitfield Auto-Packing
+In Lizard, bitfields are treated as pure contiguous data streams across all numeric types. 
+
+The compiler automatically applies the `[[packed]]` attribute to bitfield blocks, packing them sequentially into the nearest machine-addressable byte boundary, entirely ignoring legacy C/C++ base-type allocation rules. 
+
+**Example: 9-Bit Contiguous Field**
+```python
+# The compiler analyzes the 9 requested bits and automatically 
+# packs them into exactly 2 bytes (16 bits) of physical memory.
+struct StatusHeader:
+    a: uint : 1
+    b: dec : 1
+    c: uint : 1
+    d: float : 1  # Compiles to 0.0 or 1.0 logic.
+    e: uint : 1
+    f: uint : 4
+```
+
+Example C++ style syntax:
+```
+// Valid Lizard Code (C++23 Style Syntax)
+// The compiler guarantees the exact same contiguous 2-byte packing.
+struct StatusHeader {
+    uint a : 1;
+    dec b : 1;
+    uint c : 1;
+    float d : 1; // Compiles to software-emulated 0.0 or 1.0.
+    uint e : 1;
+    uint f : 4;
+};
+```
 
 
 
