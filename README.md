@@ -1,5 +1,7 @@
 Status: Pre-Alpha / Architectural Specification. The engine is currently being forged in Crucible.
 
+https://lizardlang.dev/
+
 # Lizard 🦎
 **The Cold-Blooded Concurrency Compiler.**
 
