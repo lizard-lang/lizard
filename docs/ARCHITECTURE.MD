@@ -644,6 +644,41 @@ struct ai_data_packed:
     d: float : 4
 ```
 
+## 12. Zero-Cost Static Reflection
 
+Modern high-level languages (Java, C#, Python) achieve reflection by polluting the runtime environment with bloated metadata dictionaries and executing slow, dynamic lookups. Conversely, legacy systems languages (C, C++) completely abandon reflection to maintain memory purity, forcing developers to rely on horrific macro preprocessors or external code generators to serialize structs.
+
+Lizard introduces **Zero-Cost Static Reflection** by exposing the compiler's Abstract Syntax Tree (AST) directly to the execution syntax.
+
+### A. The `_members` Iterator
+Because Lizard executes a Universal Recompilation Directive, the JIT compiler possesses perfect, real-time knowledge of every data structure's geometry. 
+
+Developers can natively iterate over the structural metadata of any object using the `_members` keyword. 
+
+**Example: Automated Serialization (Pythonic Syntax)**
+```python
+def serialize_struct(data: ptr<StockQuote>):
+    # The compiler intercepts this loop at JIT-time
+    for member in data._members:
+        # The compiler statically unrolls this logic, emitting 
+        # sequential hardware instructions for each field.
+        network_buffer.write(member.value)
+```
+Example: Automated Serialization (C++23 Style Syntax)
+```
+void serialize_struct(ptr<StockQuote> data) {
+    // Exact same AST evaluation, mapped to C++ style range-based iteration
+    for (auto member : data._members) {
+        network_buffer.write(member.value);
+    }
+}
+```
+
+### B. Compile-Time Loop Unrolling
+When the JIT compiler encounters a reflection iteration (`for member in object._members`), it does **not** generate a runtime `while` loop. It does not allocate reflection metadata into the executable binary.
+
+Instead, the compiler treats the loop as an AST generation macro. It statically evaluates the loop during compilation, physically unrolling the logic and emitting raw, sequential hardware instructions for every matching field. 
+
+This provides the ultimate dynamic ergonomic power of Python's `getattr()` reflection, while mathematically guaranteeing the exact zero-cost execution latency of a manually unrolled C struct.
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
