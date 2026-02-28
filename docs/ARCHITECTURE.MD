@@ -81,7 +81,7 @@ While Lizard strictly bans dynamic, asynchronous stack unwinding (exceptions), i
 Lizard implements **Lexical Scope-Targeted Unwinding** via two explicit hardware jump commands: `go` and `gtfo` (Graceful Termination and Forward Operation).
 
 *   **`go <label>`:** Emits a raw, unconditional x86 `JMP`. The compiler performs zero RAII analysis. It does not call destructors; it does not release locks. It is pure silicon violence for hyper-optimized state machines where the developer manually guarantees memory safety.
-*   **`gtfo <label>`:** Instructs the compiler to calculate the exact lexical delta between the call site and the destination label. The compiler statically determines which objects (locks, memory allocations) are alive at the `gtfo` call site but *out of scope* at the destination label. It physically injects only those specific destructors immediately before emitting the `JMP`.
+*   **`gtfo <label>` (Graceful Termination and Forward Operation):** Instructs the compiler to calculate the exact lexical delta between the call site and the destination label. The compiler statically determines which objects (locks, memory allocations) are alive at the `gtfo` call site but *out of scope* at the destination label. It physically injects only those specific destructors immediately before emitting the `JMP`.
 
 **Constraints:** Both the jump call and the `label` must exist strictly within the same function boundary. Cross-function jumps are mathematically banned to preserve the System V ABI call stack.
 
