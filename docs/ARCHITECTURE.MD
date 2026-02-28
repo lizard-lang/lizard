@@ -75,6 +75,97 @@ Modern AMD/Intel branch predictors (TAGE) will natively learn the happy-path of 
 
 *(Note: In the event of an unrecoverable hardware fault, such as a null-pointer dereference or OOM, the runtime defaults to the "Tail Drop" protocol—instantly severing the thread's stack pointer `XCHG EAX, ESP` rather than attempting a safe unwind).*
 
+### C. Lexical Scope-Targeted Unwinding (`gtfo` / `go`)
+While Lizard strictly bans dynamic, asynchronous stack unwinding (exceptions), it acknowledges that highly complex, multi-lock state machines require nonlinear control flow (e.g., jumping to a unified error block or restarting a hardware polling loop). Nested `if/else` logic for these states ruins branch prediction and pollutes the L1 instruction cache.
+
+Lizard implements **Lexical Scope-Targeted Unwinding** via two explicit hardware jump commands: `go` and `gtfo` (Graceful Termination and Forward Operation).
+
+*   **`go <label>`:** Emits a raw, unconditional x86 `JMP`. The compiler performs zero RAII analysis. It does not call destructors; it does not release locks. It is pure silicon violence for hyper-optimized state machines where the developer manually guarantees memory safety.
+*   **`gtfo <label>`:** Instructs the compiler to calculate the exact lexical delta between the call site and the destination label. The compiler statically determines which objects (locks, memory allocations) are alive at the `gtfo` call site but *out of scope* at the destination label. It physically injects only those specific destructors immediately before emitting the `JMP`.
+
+**Constraints:** Both the jump call and the `label` must exist strictly within the same function boundary. Cross-function jumps are mathematically banned to preserve the System V ABI call stack.
+
+### Code Example: Targeted Unwinding
+This example demonstrates jumping backward to retry a corrupted hardware frame, and jumping forward to abort, perfectly managing RAII spinlocks at zero runtime cost.
+
+```python
+def process_trade_concurrently():
+    do_stuff()
+
+    if sharedData.not_contested: [[likely]]
+    {
+        ScopeGuard guard(sharedData.lock)
+        
+        # A jump destination label
+        label corrupt_check:
+        
+        if packet.is_corrupted(): [[unlikely]]
+        {
+            ScopeGuard nic_guard(network_card.lock)
+            
+            # Attempt to fix the frame via raw hardware IO
+            if network_card.repair_frame():
+                # The compiler calculates the delta:
+                # 1. nic_guard is out of scope at 'corrupt_check'.
+                # 2. 'guard' is STILL in scope at 'corrupt_check'.
+                # Action: Calls ~nic_guard, leaves 'guard' locked, and JMPs backward.
+                gtfo corrupt_check 
+        }
+
+        if packet.is_fatal(): [[unlikely]]
+            # The compiler calculates the delta:
+            # 1. Both nic_guard (if alive) and 'guard' are out of scope at 'abort_sequence'.
+            # Action: Calls all necessary destructors to release locks, then JMPs forward.
+            gtfo abort_sequence 
+
+        print("suck it python")
+    }
+
+    return true
+
+    # The label is scoped strictly to the function frame.
+    label abort_sequence:
+        log_failure()
+        return false
+```
+
+Lizard C++ like syntax example:
+
+```
+// Valid Lizard Code (C++23 Style Syntax)
+bool process_trade_concurrently() {
+    do_stuff();
+
+    if (sharedData.not_contested) [[likely]] {
+        ScopeGuard guard(sharedData.lock);
+        
+    corrupt_check: // Standard C-style label syntax supported
+        
+        if (packet.is_corrupted()) [[unlikely]] {
+            ScopeGuard nic_guard(network_card.lock);
+            
+            if (network_card.repair_frame()) {
+                // Destroys nic_guard, retains guard, JMPs backward.
+                gtfo corrupt_check;
+            }
+        }
+
+        if (packet.is_fatal()) [[unlikely]] {
+            // Destroys all active RAII objects in the delta, JMPs forward.
+            gtfo abort_sequence;
+        }
+
+        print("suck it c++");
+    }
+
+    return true;
+
+abort_sequence:
+    log_failure();
+    return false;
+}
+```
+
 ## 5. Syntactic Duality: The Scope-Dominant Hybrid Lexer
 
 Programming language syntax is traditionally strictly bifurcated: either whitespace-delimited (Python) or brace-delimited (C/C++/Rust). Lizard fundamentally rejects this dichotomy, implementing a **Scope-Dominant Hybrid Lexer**.
