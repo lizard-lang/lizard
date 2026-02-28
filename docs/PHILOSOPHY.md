@@ -12,6 +12,13 @@ Lizard destroys this dichotomy. We believe you can have the syntactic sugar and 
 
 In fact, Lizard looks at C++ and says: **"You aren't fast enough anymore. Your linker is slow, your struct padding is manual, your exceptions are a liability, and your syntax is from 1983."**
 
+### 0. The Principle of Deterministic Performance
+Lizard is a compiler, not a heuristic guessing engine. We fundamentally reject the paradigm where a compiler silently rearranges your memory geometry or ignores your caching instructions because an opaque, slow internal algorithm "knows better." 
+
+If you want a massive static analyzer to profile your branch predictions and calculate optimal function inlining thresholds, you should build that as a separate, community-driven tool. That tool can then read your telemetry and inject explicit `[[force_inline]]` or `[[hot]]` tags directly into your Lizard source code. 
+
+The compiler’s job is not to guess your intent; its job is to execute the tags you provide with absolute, unyielding hardware physics. Compilation must remain blistering fast, and performance must remain completely deterministic.
+
 ### 1. The Compiler is a Co-Pilot, Not a Nanny
 Modern systems languages often adopt an adversarial relationship with the developer, enforcing strict borrow checkers to prevent you from hurting yourself, or hiding memory allocations entirely. 
 
