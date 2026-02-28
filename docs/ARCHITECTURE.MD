@@ -4,7 +4,7 @@
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
 
-### 0. The Principle of Deterministic Performance
+## 0. The Principle of Deterministic Performance
 
 Lizard is a compiler, not a heuristic guessing engine. We fundamentally reject the paradigm where a compiler silently rearranges your memory geometry or ignores your caching instructions because an opaque, slow internal algorithm "knows better." 
 
