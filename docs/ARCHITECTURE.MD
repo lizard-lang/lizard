@@ -607,9 +607,36 @@ struct StatusHeader {
     uint f : 4;
 };
 ```
+**The Sub-Byte Hardware Boundary Rule:**
+If a developer defines an independent sub-byte primitive (e.g., `float4` or `int7`) without using explicit bitfield syntax, the compiler prioritizes memory addressability over spatial compression. 
 
+Because the smallest individually addressable unit of memory on x86_64 is 1 byte (8 bits), the compiler will allocate full, independent bytes for these primitives. This guarantees that developers can still extract the raw memory address pointer (`&`) of the field to pass across FFI boundaries.
 
+**Example: Addressability vs. Wasted Space**
+```python
+# Because no bitfield syntax is used, the compiler allocates 1 physical 
+# byte for each int7 primitive. This struct takes exactly 4 bytes in RAM,
+# with 4 bits of completely wasted padding. The Lizard sighs deeply.
+struct dumbass:
+    l: int7
+    m: int7
+    a: int7
+    o: int7
+```
 
+If absolute spatial compression is required (e.g., for ML weights or network framing), the developer must explicitly invoke Contiguous Bitfield Auto-Packing (Section 11C), which mathematically strips the primitives of their independent memory addresses to achieve perfect sub-byte density.
+
+Example: Perfect Spatial Compression
+
+```
+# The bitfield syntax explicitly destroys the memory addresses.
+# The compiler perfectly packs all four 4-bit floats into exactly 2 bytes.
+struct ai_data_packed:
+    a: float : 4
+    b: float : 4
+    c: float : 4
+    d: float : 4
+```
 
 
 
