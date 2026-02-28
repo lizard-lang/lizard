@@ -521,7 +521,7 @@ void link_nodes(TreeNode parent, TreeNode child) {
 
 ```
 
-Lizard solves the double ref counting problem elegantly. 
+As you can see, Lizard solves the double ref-counting problem elegantly.
 
 
 
