@@ -166,6 +166,8 @@ abort_sequence:
 }
 ```
 
+As you can see Lizard solves the double memory leak problem.
+
 ## 5. Syntactic Duality: The Scope-Dominant Hybrid Lexer
 
 Programming language syntax is traditionally strictly bifurcated: either whitespace-delimited (Python) or brace-delimited (C/C++/Rust). Lizard fundamentally rejects this dichotomy, implementing a **Scope-Dominant Hybrid Lexer**.
