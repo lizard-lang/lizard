@@ -451,16 +451,22 @@ In Lizard, when you pass an object or assign a variable, it is handled as a Rebi
 *   **Dynamic Reseating:** Unlike C++ references, a Lizard reference can be dynamically reassigned to point to a different memory address mid-function without copying the underlying object payload. 
 *   **Zero-Overhead:** Under the hood, the compiler evaluates a Rebindable Reference as a strict, non-null hardware pointer (`*`). There is zero reference-counting overhead and zero Garbage Collection pausing. It is simply a raw memory address with mathematically enforced syntactic sugar.
 
-### B. Arbitrary Lifetime Escape Hatches
-Because Rebindable References operate strictly within the bounds of the compiler's Escape Analysis (stack memory and deterministic RAII), developers occasionally need Turing-complete arbitrary memory allocation (heap-allocated graphs, long-lived generic caches). 
+### B. Implicit Memory Escalation via Escape Analysis
+In legacy systems languages, developers must manually decide whether a pointer is raw, uniquely owned (`std::unique_ptr`), or reference-counted (`std::shared_ptr`). If the architecture scales, the developer is forced to refactor thousands of types.
 
-For these explicit cases, Lizard's core library provides hardware-mapped Smart Primitives:
-*   **`rc_ptr<T>` (Reference Counted):** Standard heap allocation. Fast, but mathematically guaranteed to cause a hardware data race if shared across threads.
-*   **`arc_ptr<T>` (Atomic Reference Counted):** The compiler explicitly injects hardware bus locks (`F0` / `LOCK XADD`) on the counter mutations. Safe for lock-free SPMC/MPMC architectures.
-*   **`box<T>`:** Raw, unique heap allocation for deterministic ownership.
+Lizard completely rejects manual pointer typing. The compiler’s Escape Analysis engine automatically handles memory lifecycle physics, allowing the developer to use simple, unified Rebindable References everywhere. 
 
-Lizard enforces the philosophy that developers should not think about memory management for 95% of their execution paths (handled by Rebindable References and the stack). For the remaining 5%, they are given exact, atomic scalpels.
+The compiler mathematically proves the necessary memory abstraction at compile-time:
 
+1.  **The Raw Pointer Path (Zero-Cost):**
+    If the compiler proves a reference is strictly thread-local, or that its lifespan is guaranteed to be shorter than the object it points to (e.g., passing down the call stack), it compiles the reference as a raw, zero-overhead x86_64 pointer (`T*`).
+2.  **The Cross-Thread Reference Path (Implicit Concurrency):**
+    If the compiler proves a reference crosses a thread boundary, but is only *read/mutated* and never dynamically rebound to a new address, it remains a raw pointer. However, the compiler automatically injects the structural geometry dictated by your `-L` flags (e.g., `-L1` implicit `seqlock`, or `-L2` `F0` hardware locks) to guarantee thread-safe mutations.
+3.  **The Ref-Count Escalation Path (Turing-Complete Survival):**
+    If, and only if, the compiler detects that a reference crosses a thread boundary AND its lifespan cannot be statically determined (e.g., it is inserted into a global asynchronous hash map or dynamically rebound mid-flight), the compiler silently promotes the object to a heap allocation and attaches an implicitly locked reference counter (`LOCK XADD`). 
+
+**The Developer Experience:**
+The developer never types `rc_ptr` or `shared`. They simply declare a variable and use it. The Lizard JIT analyzes the entire dependency graph, guarantees the memory safety, and automatically applies the fastest physical abstraction the hardware allows.
 
 
 
