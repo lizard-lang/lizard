@@ -468,13 +468,60 @@ The compiler mathematically proves the necessary memory abstraction at compile-t
 **The Developer Experience:**
 The developer never types `rc_ptr` or `shared`. They simply declare a variable and use it. The Lizard JIT analyzes the entire dependency graph, guarantees the memory safety, and automatically applies the fastest physical abstraction the hardware allows.
 
+### C. The Cyclic Reference Policy & `[[weak]]` Tags
+Because Lizard fundamentally rejects tracing Garbage Collectors (mark-and-sweep), it is mathematically vulnerable to cyclic memory leaks when auto-escalated reference-counted objects point to each other (e.g., doubly-linked lists). 
 
+Lizard enforces the philosophy that **Memory Topology is the Developer's Responsibility.**
 
+The compiler will not pause your trading pipeline to walk memory graphs and break cyclic dependencies. If a developer engineers a cyclic graph using Rebindable References and allows it to escape the stack, it will leak memory until the system terminates. 
 
+To safely construct bidirectional graphs without triggering cyclic memory leaks, Lizard provides a single, explicit memory tag:
 
+*   **`[[weak]]`:** When applied to a reference definition, it explicitly instructs the compiler *not* to increment the target object's reference counter upon assignment. 
+*   **Access Constraints:** Because a weak reference does not guarantee the survival of its target, developers must explicitly test its validity (e.g., `if node.parent:`) before accessing it. If a developer attempts to dereference a dead `[[weak]]` reference without checking, the compiler defaults to the standard hardware response: a zero-unwind segfault.
 
+**Example: Bidirectional Graph Syntax**
+```python
+struct TreeNode:
+    data: int64
+    # Implicitly manages the child's lifespan (strong reference)
+    left_child: TreeNode
+    right_child: TreeNode
+    
+    # Breaks the cycle: does not increment the parent's ref-count
+    [[weak]]
+    parent: TreeNode 
 
+def link_nodes(parent: TreeNode, child: TreeNode):
+    parent.left_child = child
+    child.parent = parent # Rebinds a weak reference safely
 
+```
+
+Lizard C++ style syntax example:
+
+```
+// Valid Lizard Code (C++23 Style Syntax)
+struct TreeNode {
+    int64 data;
+    
+    // Implicitly manages the child's lifespan (strong reference)
+    TreeNode left_child;
+    TreeNode right_child;
+    
+    // Breaks the cycle: does not increment the parent's ref-count
+    [[weak]]
+    TreeNode parent;
+};
+
+void link_nodes(TreeNode parent, TreeNode child) {
+    parent.left_child = child;
+    child.parent = parent; // Rebinds a weak reference safely
+}
+
+```
+
+Lizard solves the double ref counting problem elegantly. 
 
 
 
