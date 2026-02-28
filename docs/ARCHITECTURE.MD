@@ -378,11 +378,18 @@ void process_exchange_buffer<T>(ptr<T> buffer_ptr, int32 size) {
 
 ```
 
-### C. Data-Oriented Typology (The "Struct" Standard)
-Lizard abandons the legacy Object-Oriented `class` keyword. In high-frequency computing, Data-Oriented Design (DOD) is paramount. Developers construct mathematically aligned data payloads (`struct`) and feed them through pure transformation functions, rather than building state-heavy objects. 
+### C. Data-Oriented Typology (The Eradication of Inheritance)
+Lizard abandons the legacy Object-Oriented `class` keyword and explicitly bans classical Object-Oriented Inheritance. 
 
-*   **Public by Default:** All fields in a Lizard `struct` are public by default, mirroring Python's frictionless data access model. 
-*   **Explicit Privacy:** C++ developers can still enforce strict memory encapsulation by explicitly opening a `private:` block within the struct definition.
+In high-frequency computing and modern systems architecture, Data-Oriented Design (DOD) is paramount. Deep inheritance trees (`Animal -> Dog -> Poodle`) and dynamic polymorphism physically destroy L1 cache alignment. When a developer relies on virtual functions, the compiler must silently inject an 8-byte virtual table pointer (`vptr`) into every struct, fracturing cache lines and forcing the CPU to execute a slow, branch-unpredictable memory lookup (dynamic dispatch) for every function call.
+
+Lizard fundamentally rejects this architectural penalty. 
+
+*   **Struct Composition Over Inheritance:** Developers construct mathematically aligned data payloads (`struct`) and use explicit Composition. If a struct needs the data of another struct, it physically embeds it as a field.
+*   **Compile-Time Monomorphization:** If a developer needs a function to operate on multiple different types, they do not use a virtual base class. They use a Template (`<T>`). The Lizard compiler generates mathematically distinct, perfectly optimized assembly paths for each type at compile-time (Zero-Cost Static Dispatch).
+*   **Public by Default:** All fields in a Lizard `struct` are public by default, mirroring Python's frictionless data access model. C++ developers can still enforce strict memory encapsulation by explicitly opening a `private:` block.
+
+There is no `extends`, no `implements`, and no `vptr` injection. You pack the struct, and you transform the data.
 
 **Example: Templated Pythonic Struct**
 ```python
