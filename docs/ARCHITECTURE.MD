@@ -654,25 +654,34 @@ However, because Lizard is built for *modern developer happiness*, it rejects th
     *   *Scoped (for complex expressions):* `(int16)(a + b)`
 2.  **The "Figure It Out" Cast:** If the destination type is mathematically obvious from the assignment or function signature, the developer can simply write `(cast)`. The compiler infers the exact required bit-width and generates the promotion/truncation opcodes.
     *   *Example:* `my_int64 = (cast)my_int32`
-3.  **The `[[implicit_cast]]` Attribute:** When writing complex, multi-variable mathematical formulas where safe hardware up-casting is guaranteed, developers shouldn't have to litter the equation with casts. Tagging a statement or function block with `[[implicit_cast]]` temporarily relaxes the strict-typing rule, instructing the AST to silently auto-promote types to satisfy the hardware registers.
+3.  **Statement-Level `[[implicit_cast]]`:** For single equations where hardware up-casting is guaranteed to be safe, tagging the statement temporarily relaxes strict-typing for that exact line. Lizard syntax allows the tag to be placed at the beginning or the end of the statement.
+4.  **Block-Level `[[implicit_cast]]`:** When writing dense mathematical logic, tagging an entire `{}` block instructs the AST to silently auto-promote types across all equations within that physical boundary.
 
 **Example: Ergonomic Type Coercion**
 ```python
-def process_tick(price: dec32, size: int16):
+def calculate_metrics(raw_size: int16, multiplier: int32, offset: int64):
+    
     # 1. Explicit C-Style Cast
-    expanded_size: int64 = (int64)size
+    expanded_size: int64 = (int64)raw_size
     
-    # 2. The Auto-Infer Cast
-    # Compiler knows `expanded_size` is int64, automatically promotes `size`.
-    expanded_size = (cast)size 
+    # 2. The Auto-Infer Cast (Compiler knows destination is int64)
+    expanded_size = (cast)raw_size 
     
-    # 3. Block-Level Implicit Casting
-    # Silently promotes all lower-bit variables to int64 for the calculation.
+    # 3. Statement-Level Implicit Casting (Prefix or Postfix)
+    # The int16 and int32 are silently promoted to match the int64 destination.
+    [[implicit_cast]] total_value: int64 = raw_size * multiplier + offset
+    
+    adjusted_value: int64 = raw_size * multiplier [[implicit_cast]]
+
+    # 4. Block-Level Implicit Casting
+    # All equations within the block automatically handle cross-width math.
     [[implicit_cast]]
     {
-        total_volume: int64 = size * current_multiplier + previous_volume
+        volume: int64 = raw_size * multiplier + offset
+        surface_area: int64 = raw_size * raw_size * multiplier
     }
 ```
+
 
 ## 12. Zero-Cost Static Reflection
 
