@@ -681,4 +681,64 @@ Instead, the compiler treats the loop as an AST generation macro. It statically 
 
 This provides the ultimate dynamic ergonomic power of Python's `getattr()` reflection, while mathematically guaranteeing the exact zero-cost execution latency of a manually unrolled C struct.
 
+## 13. Unrestricted Compile-Time Execution (`constexpr`)
+
+In legacy languages like C++, the `constexpr` (compile-time evaluation) keyword is structurally restricted. Developers cannot perform system I/O, make network requests, or read environmental states during compilation because the compiler is generating an artifact (`.exe`) intended to run on a different machine at a later date. This limitation frequently forces high-frequency developers to push mathematically static calculations (like calculating the UTC-to-EST epoch delta) into the runtime hot path.
+
+Because Lizard enforces a Universal Recompilation Directive (JIT compiling directly on the host silicon at execution time), **the execution environment and the compilation environment are exactly the same.** 
+
+Lizard fundamentally unshackles `constexpr`. 
+
+### A. The Universal `constexpr` Mandate
+In Lizard, *any* function, from *any* library, can be invoked as `constexpr`. 
+
+When the JIT compiler encounters a `constexpr` variable assignment, it pauses AST traversal, literally executes the requested function natively in the compiler's own memory space, captures the returned payload, and permanently burns that result into the `memfd` instruction stream as a raw, static hardware constant. 
+
+### B. Arbitrary Compile-Time I/O
+The Lizard compiler does not sandbox `constexpr` evaluation. 
+*   **System Telemetry:** You can execute a syscall to fetch the exact `RDTSC` (Time Stamp Counter) CPU frequency at the microsecond of compilation and bake it in as a constant multiplier, eliminating runtime cycle division.
+*   **File I/O:** You can read a 500MB JSON configuration file into memory during compilation, extract the required thresholds, and bake them into the binary, entirely eliminating the JSON parsing library from the final executable.
+*   **Network Requests:** If a developer wants to execute an HTTP `GET` request to a vendor API to fetch the daily trading limits and burn them into the binary as immutable static constants, the compiler will execute the network call and lock the value.
+
+**Example: Unrestricted Compile-Time Physics**
+```python
+# The JIT compiler executes this function during compilation.
+# The network request occurs BEFORE the binary is finalized.
+def fetch_daily_strike_limit() -> int64:
+    response = http.get("https://api.exchange.com/limits")
+    return response.read_int()
+
+# The result is burned directly into the x86 instruction stream 
+# as a raw literal constant. Zero runtime overhead.
+constexpr DAILY_LIMIT = fetch_daily_strike_limit()
+
+def process_trade(size: int64):
+    # Compiles to a raw hardware comparison: CMP RDI, [Constant]
+    if size > DAILY_LIMIT: [[unlikely]]
+        gtfo reject_trade
+```
+
+This absolute freedom allows systems engineers to strip massive amounts of initialization logic, environmental polling, and parsing overhead out of their runtime architecture, mathematically ensuring that the hot path only executes pure alpha.
+
+## 14. Deterministic Optimization Passes
+Lizard fundamentally rejects "heuristic optimizations" (where the compiler guesses branch probabilities or silently rearranges struct geometry). However, Lizard aggressively embraces **Deterministic Optimizations**—mathematical passes that provably reduce hardware execution cycles without altering the developer’s explicit structural intent. 
+
+These passes exist to ensure developer happiness. Developers are encouraged to write rapid, iterative logic without worrying about the raw x86 register penalty of reusing a variable. 
+
+### A. The Static Single Assignment (SSA) Matrix
+Immediately following AST generation, Lizard transforms the logical tree into a strict Static Single Assignment (SSA) intermediate representation. This is the core physics engine of the compiler, responsible for mathematical proofing:
+*   **Register Allocation Graph Coloring:** The SSA pass perfectly collapses temporary variables, iterative reassignments, and local aliases, mapping the final mathematically necessary values directly to raw x86 hardware registers (`RAX`, `RDI`, `XMM0`).
+*   **Escape Analysis Validation:** The SSA graph provides the absolute mathematical proof of a memory pointer's lifespan, which the compiler uses to seamlessly enforce `-L2` hardware locking or `gtfo` Delta Destruction.
+
+### B. Constant Folding & Propagation
+Lizard performs aggressive, multi-pass constant folding at compile-time. 
+If an expression evaluates strictly to constants (e.g., `(1024 * 1024) / 4`), the compiler executes the math internally and emits the final literal directly into the `memfd` instruction stream. This eliminates unnecessary ALU (Arithmetic Logic Unit) cycles for mathematically static values.
+
+### C. Dead-Code Elimination (DCE)
+Because Lizard enforces a Universal Recompilation Directive across the entire dependency graph, it has perfect visibility into which functions, templates, and code paths are actually invoked. 
+Any function, branch, or structural logic that the SSA graph proves cannot be physically reached during execution is mathematically purged before opcode emission. This prevents the L1 instruction cache from being polluted by unused dependencies or dormant FFI templates.
+
+The JIT compiler optimizes your logic, but it never overrides your physical commands. 
+
+
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
