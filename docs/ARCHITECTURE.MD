@@ -298,11 +298,12 @@ By applying thermal tags to control flow (`if`, `while`) or functions, developer
 ### C. Advanced Hardware Control Tags (The Prior Art Arsenal)
 To fully weaponize the compiler, Lizard supports the following bare-metal attributes:
 
-*   **`[[force_inline]]` / `[[no_inline]]`:** Overrides compiler heuristics to forcibly inline (or prevent inlining) of a function, dictating exact instruction cache footprint.
+*   **`[[force_inline]]` (The Absolute Mandate):** In C/C++, `inline` is merely a suggestion that the compiler frequently ignores. In Lizard, `[[force_inline]]` is a mathematical mandate. It instructs the AST parser to physically copy and flatten the function's syntax nodes directly into the caller's scope *prior* to Label Resolution. 
+    *   **Macros 3.0 & Zero-Cost Coroutines:** Because this attribute flattens the AST into a single System V ABI stack frame, developers can use `gtfo` and `go` to jump in and out of `[[force_inline]]` lambdas natively. This functionally creates zero-cost, type-safe hardware coroutines without the need for a macro preprocessor or a runtime scheduler. If the developer abuses this and blows out the L1i instruction cache, the compiler will happily let them.
+*   **`[[no_inline]]`:** An absolute blockade. Prevents the JIT heuristic engine from ever inlining the function, dictating exact instruction cache isolation.
 *   **`[[pure]]`:** Informs the compiler that the function has zero side effects and only depends on its inputs. Allows the JIT to aggressively memoize results or entirely eliminate redundant calls.
-*   **`[[tailcall]]`:** Forces strict Tail-Call Optimization (TCO). If the compiler cannot mathematically guarantee the function will execute without consuming a new stack frame, it throws a fatal compile-time error. Essential for lock-free state machines.
-*   **`[[naked]]`:** Instructs the JIT to emit zero function prologue or epilogue (no stack frame setup/teardown). The developer assumes absolute manual control over hardware registers. Designed for raw system-call wrappers, custom interrupt handlers, or hyper-optimized inline assembly blocks.
-
+*   **`[[tailcall]]`:** Forces strict Tail-Call Optimization (TCO). If the compiler cannot mathematically guarantee the function will execute without consuming a new stack frame, it throws a fatal compile-time error.
+*   **`[[naked]]`:** Instructs the JIT to emit zero function prologue or epilogue. The developer assumes absolute manual control over hardware registers (`RBP`/`RSP`). Designed for raw system-call wrappers or hyper-optimized inline assembly blocks.
 
 ## 8. Memory Topography & Compile-Time Monomorphization
 
