@@ -439,7 +439,27 @@ dll-loader   github.com/lizard-lang/dll-loader        4630bb8f125146662d41aea1a1
 math_lib     gitlab.com/quant-fund/lizard-math        "v2.0.1"
 ```
 
+## 10. Memory Ergonomics: Rebindable References
 
+To achieve the execution speed of C++ without a Garbage Collector, a language must expose memory addresses. However, legacy C++ memory ergonomics are fundamentally broken. C++ references (`T&`) suffer from strict initialization binding (they can never be reseated to point to a new object). To achieve dynamic reassignment, developers are forced to use raw pointers (`T*`), which introduces null-dereference anxiety and fractures syntax via the `->` operator. 
+
+Lizard solves this by introducing **Rebindable References** as the default data-binding paradigm, perfectly mirroring Python's variable ergonomics on top of raw silicon. 
+
+### A. The Mechanics of the Rebindable Reference
+In Lizard, when you pass an object or assign a variable, it is handled as a Rebindable Reference.
+*   **Syntax Fluidity:** Like Python, developers always use the dot operator (`object.field`) for memory access. The `->` pointer-dereference operator is entirely abolished from the high-level syntax.
+*   **Dynamic Reseating:** Unlike C++ references, a Lizard reference can be dynamically reassigned to point to a different memory address mid-function without copying the underlying object payload. 
+*   **Zero-Overhead:** Under the hood, the compiler evaluates a Rebindable Reference as a strict, non-null hardware pointer (`*`). There is zero reference-counting overhead and zero Garbage Collection pausing. It is simply a raw memory address with mathematically enforced syntactic sugar.
+
+### B. Arbitrary Lifetime Escape Hatches
+Because Rebindable References operate strictly within the bounds of the compiler's Escape Analysis (stack memory and deterministic RAII), developers occasionally need Turing-complete arbitrary memory allocation (heap-allocated graphs, long-lived generic caches). 
+
+For these explicit cases, Lizard's core library provides hardware-mapped Smart Primitives:
+*   **`rc_ptr<T>` (Reference Counted):** Standard heap allocation. Fast, but mathematically guaranteed to cause a hardware data race if shared across threads.
+*   **`arc_ptr<T>` (Atomic Reference Counted):** The compiler explicitly injects hardware bus locks (`F0` / `LOCK XADD`) on the counter mutations. Safe for lock-free SPMC/MPMC architectures.
+*   **`box<T>`:** Raw, unique heap allocation for deterministic ownership.
+
+Lizard enforces the philosophy that developers should not think about memory management for 95% of their execution paths (handled by Rebindable References and the stack). For the remaining 5%, they are given exact, atomic scalpels.
 
 
 
