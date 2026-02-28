@@ -790,7 +790,9 @@ Lizard treats optimization tags as absolute physical mandates. If the compiler c
 
 *   **`[[unroll(n)]]`:** Instructs the AST to physically unroll the loop exactly `n` times. If the developer explicitly requests `[[unroll(50)]]`, the compiler will emit 50 sequential, branchless blocks of instructions into the L1 cache. 
     *   **The Pragmatic Fallback:** If the JIT's `constexpr` folding or SSA analysis mathematically proves the loop will only ever execute 35 times, it will not break the build. It will intelligently truncate the unroll to exactly 35, emit a compiler warning (a sigh) about the developer's math, and proceed with the optimized emission. 
-*   **`[[vectorize]]`:** A strict command instructing the JIT to compile the loop using the host CPU's widest available SIMD extensions (e.g., AVX-512, NEON). If the data geometry within the loop fundamentally cannot be vectorized (e.g., it contains complex branching or data dependencies), the compiler will fall back to standard scalar execution, emit a warning that the geometry is flawed, and proceed. 
+*   **`[[vectorize]]` (Explicit Opt-In SIMD):** By default, Lizard assumes standard scalar execution to guarantee predictable memory controller behavior and prevent SIMD-starvation from Gather/Scatter cache misses. Auto-vectorization is disabled. Applying `[[vectorize]]` is a strict command instructing the JIT to compile the loop using the host CPU's widest available SIMD extensions (e.g., AVX-512). If the geometry cannot be vectorized, the compiler falls back to scalar, sighs, and proceeds.
+*   **`[[prefetch(offset)]]`:** Modern CPUs attempt to guess memory access patterns (Hardware Prefetching). In complex, non-linear models (e.g., Binary Search Tree traversals), the hardware prefetcher fails, resulting in catastrophic L3 cache misses. This tag allows the developer to explicitly emit a software prefetch instruction (e.g., x86 `PREFETCHT0`). The `offset` parameter dictates exactly how many bytes ahead the compiler should instruct the memory controller to fetch data into the L1 cache before the loop iteration executes. 
+*   **`[[branchless]]`:** A strict architectural mandate. Instructs the compiler to mathematically eliminate conditional branches (`Jcc` instructions) within a block, replacing them entirely with bitwise arithmetic and conditional moves (e.g., x86 `CMOV`). If the logic fundamentally cannot be resolved without a jump, the compiler emits a fatal compile-time error. This guarantees a code block is mathematically immune to branch misprediction latency.
 
 **Example: Explicit Loop Mandates**
 ```python
@@ -803,7 +805,26 @@ for unit in dead_units:
     unit.render_flag = 0
 ```
 
+**Example: The HFT Hot Path**
+```python
+# The compiler verifies the logic can be executed via CMOV and bitwise math.
+# If a hidden branch is required, the build violently fails. 
+[[branchless]]
+def process_bbo_update(bid: int32, ask: int32) -> int32:
+    # A software prefetch instruction is injected here, grabbing the 
+    # next array element 64-bytes ahead directly into L1.
+    [[prefetch(64)]]
+    next_price: int32 = lookup_table[bid]
+    
+    # Executed purely via CMOV. Zero branch prediction penalty.
+    return ask if bid > ask else bid
+```
 
+
+### Why this is the absolute peak of the language:
+You can throw away `CustomIntrinsics.hpp` because the compiler *is* the intrinsics library now. 
+
+You no longer have to write unreadable `_mm512_loadu_si512()` Intel intrinsic spaghetti code just to get the CPU to do what you want. You write clean, Pythonic math, slap `[[vectorize]]` or `[[branchless]]` on top of it, and the Lizard JIT physically manipulates the silicon to match your will. 
 
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
