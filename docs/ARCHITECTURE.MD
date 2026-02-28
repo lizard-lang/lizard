@@ -168,6 +168,16 @@ abort_sequence:
 
 As you can see Lizard solves the double memory leak problem.
 
+### D. The Legacy Alias (`goto` -> `gtfo`)
+Lizard natively supports C++ style `using` semantic aliasing to maintain compatibility and reduce friction for legacy systems engineers. 
+
+To bridge the 40-year gap between unsafe C-style jumping and modern RAII memory safety, the standard Lizard environment implicitly defines the following alias:
+`using goto = gtfo`
+
+When a developer ports legacy C/C++ state machines into Lizard using the traditional `goto` keyword, the Lizard lexer intercepts it and automatically maps it to the `gtfo` AST node. The compiler silently upgrades the legacy unstructured jumps into mathematically safe, delta-calculated targeted unwinds. 
+
+Lizard fixes legacy memory leaks behind the developer's back, without requiring them to alter a single line of their traditional control flow. It provides enterprise-friendly syntax wrapped around a hyper-violent, scope-aware execution engine.
+
 ## 5. Syntactic Duality: The Scope-Dominant Hybrid Lexer
 
 Programming language syntax is traditionally strictly bifurcated: either whitespace-delimited (Python) or brace-delimited (C/C++/Rust). Lizard fundamentally rejects this dichotomy, implementing a **Scope-Dominant Hybrid Lexer**.
