@@ -559,6 +559,8 @@ Lizard solves this natively at the syntax and AST level, explicitly supporting b
 ### A. The `<Type>N` Arbitrary Precision Syntax
 Lizard allows the developer to explicitly define numeric primitives of *any* arbitrary bit-width directly in the type signature (e.g., `int24`, `uint13`, `float4`, `dec7`). *(Note: `dec` is aliased to `decimal` via the standard library `using` directive).*
 
+*Unlike legacy languages that must invent new keywords (`__int128`, `__m256i`) every time silicon manufacturers widen their hardware registers, Lizard's syntax is mathematically immune to the passage of time. If a future CPU introduces a native 1024-bit integer register, the developer simply types `int1024`, and the JIT maps it directly to the silicon without a single change to the language specification.*
+
 *   **Integers (`intN`, `uintN`):** The compiler allocates the smallest hardware-addressable block and silently injects the necessary bit-masks (e.g., `& 0xFFFFFF` for `uint24`) on all operations.
 *   **AI Quantization & Exotics (`float4`, `udec16`):** Lizard natively supports sub-byte and exotic numeric types. It introduces `ufloat` (Unsigned Float) and `udecimal` to support modern, sign-stripped AI weight packing. 
 *   **Struct Compression:** This allows developers to easily pack highly specific data—such as compressing 4 distinct Option Greeks into a perfect 8-byte payload using `dec16`—without writing manual shift logic.
@@ -616,7 +618,11 @@ Because the smallest individually addressable unit of memory on x86_64 is 1 byte
 ```python
 # Because no bitfield syntax is used, the compiler allocates 1 physical 
 # byte for each int7 primitive. This struct takes exactly 4 bytes in RAM,
-# with 4 bits of completely wasted padding. The Lizard sighs deeply.
+# with 4 bits of completely wasted padding. 
+
+# The compiler will not stop you from doing something mathematically obtuse, 
+# but it will absolutely judge you for it. The Lizard sighs deeply. 
+#(Expect a compiler warning).
 struct dumbass:
     l: int7
     m: int7
