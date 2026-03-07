@@ -177,6 +177,7 @@ Lizard solves this by providing native hardware topology introspection and Seman
 Lizard abstracts OS-specific CPU topology (e.g., Linux `/proc/cpuinfo`, Windows `GetLogicalProcessorInformation`) into native, array-based hardware helpers:
 *   `CPU.get_physical_cores()`: Returns an array of all true physical silicon core IDs, bypassing OS logical fragmentation.
 *   `CPU.get_virtual_cores()`: Returns an array of all secondary SMT/hyperthread logical core IDs.
+*   `CPU.get_core_pairs()`: Returns a nested array mapping physical cores to their associated virtual threads (e.g., `[[0,1], [2,3]]` on Windows, or `[[0,16], [1,17]]` on Linux). This is mathematically future-proofed; if future silicon architectures introduce tri-core SMT or beyond, the arrays will dynamically scale to reflect the true physical clusters (e.g., `[[0,1,2], [3,4,5]]`). This allows systems engineers to intentionally pair high-bandwidth Producer/Consumer threads onto the exact same physical silicon to achieve instantaneous L1/L2 cache sharing without crossing the Infinity Fabric.
 *   `CPU.get_smt_sibling(id)`: A bidirectional mapping function. Pass a physical core ID to get its corresponding SMT sibling, or pass a virtual ID to resolve its physical host core.
 
 #### Semantic Thread Tags
