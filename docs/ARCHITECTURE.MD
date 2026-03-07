@@ -44,27 +44,128 @@ By fusing executable instructions and static data into a single 1-Gigabyte page,
 
 Because modern linkers heavily resist fusing `.text` (executable) and `.data` (writable) into 1GB pages for security (W^X protections), Lizard acts as its own dynamic linker. It emits raw x86_64 opcodes directly into the `memfd` block, seals the memory descriptors, and executes a direct `JMP` to the entry point. 
 
-## 2. Implicit Concurrency: Escape Analysis & Hardware Locking
+## 2. Memory Topology: Thread-Local by Default & The `[[shared]]` Boundary
 
-Modern languages rely on developers manually placing `std::mutex` or `std::atomic` around shared memory. This is fundamentally flawed, as it requires human perfection to avoid race conditions and relies on the OS scheduler to manage thread contention. 
+Modern languages attempt to be "smart" by using complex Escape Analysis to guess when a variable crosses a thread boundary, silently injecting hidden locks or promoting memory to the heap. This introduces "spooky action at a distance"—if a developer accidentally passes a reference to a background thread, the compiler silently wraps the entire data structure in atomic locks, inexplicably tanking pipeline throughput.
 
-Lizard implements **Hardware-Level Implicit Concurrency** via AST Escape Analysis.
+Lizard refuses to play guessing games with your memory topology. 
 
-During the lexing and parsing phase, Lizard traces the lifespan of every memory pointer:
-*   **Thread-Local Memory:** If a variable is mathematically proven to never leave the scope of its spawning thread, the compiler emits pure, raw x86_64 arithmetic instructions.
-*   **Escaped Memory (Global/Shared):** If a variable crosses a thread boundary, Lizard automatically injects the x86 `LOCK` prefix (`F0`) into the instruction stream (e.g., `LOCK ADD`, `LOCK XCHG`). 
+Lizard enforces a strict **Thread-Local by Default** architecture for all module-scoped variables. 
 
-Under the `-L2` optimization flag, Lizard entirely bypasses the Linux kernel scheduler. It does not yield threads. It forces the physical AMD Infinity Fabric and memory controllers to arbitrate the collision directly on the silicon bus. 
+*   **Function Scope:** Variables declared inside a function execute exactly as expected—they are bound to the raw hardware stack & registers (`RSP`).
+*   **Module/Global Scope:** Variables declared at the file or module level (which in Python or C would default to unprotected global state) are inherently compiled as **Thread-Local Storage (TLS)** (syntactically equivalent to C++11 `thread_local`). 
 
-## 3. Structural Geometry: The `-L1` Implicit Seqlock
+Every thread gets its own perfectly isolated, lock-free instance of the global state. They execute with zero locks, zero atomic instructions, and absolute bare-metal ALU speed. 
 
-Under the `-L1` (Strict Consistency) flag, Lizard automatically alters the structural geometry of user-defined data objects to guarantee tear-free reads across multiple cache lines.
+### The `[[shared]]` Attribute
+To orchestrate multi-threaded data, developers must explicitly cross the concurrency boundary using the `[[shared]]` attribute. 
 
-When a multi-field struct is declared, Lizard silently prepends a 64-bit Sequence Counter (`seqlock`) to the memory layout, enforcing strict L1 cache-line alignment. 
-*   **Writers:** The compiler automatically wraps writes by incrementing the sequence counter (odd = locked, even = unlocked).
-*   **Readers:** The compiler automatically emits a spin-read loop. It reads the sequence counter, loads the struct memory, and verifies the sequence counter has not changed. 
+When a module-level variable or array is tagged with `[[shared]]`, the JIT compiler allocates the payload into the globally visible `mmap` / HugePage execution block. *Only then* does the compiler apply the hardware synchronization geometry dictated by your Optimization Flags (e.g., `-L1` implicit Seqlocks, or `-L2` hardware `F0` locks). 
 
-This provides mathematically perfect 1-Writer / N-Reader synchronization without the developer writing a single line of lock-free logic.
+**The Pragmatic Advantage:**
+1. **Zero Spooky Slowdowns:** 99% of your state logic runs at lock-free, single-thread physics. The compiler never silently penalizes your throughput.
+2. **Explicit Intent:** The developer acknowledges and accepts the physical cost of a memory barrier because they explicitly requested it. 
+3. **Trivial Debugging:** If a developer asks, *"Why isn't my global array updating across threads?"*, the answer is always, *"Because you mutated your thread-local copy. Tag it `[[shared]]`."*
+
+### Code Example: Explicit Concurrency
+This syntax provides the frictionless joy of Python while natively driving hardware-level memory boundaries.
+
+```python
+struct secret_agent:
+    name: string
+    codename: string
+    license: string
+    nemesis: string
+    mission: string
+
+# Allocated in globally visible shared memory.
+# The JIT automatically wraps this array in the requested -L synchronization.
+[[shared]] secret_agents = []
+
+# Module-level variable. In Lizard, this is inherently Thread-Local.
+# Every spawned thread gets its own isolated, lock-free copy of this counter.
+total_agents_dispatched: int32 = 0 
+
+secret_agents.add(bond_template)
+secret_agents.add(alec_template)
+
+thread MoneyPenny:
+    # Safely mutates the shared memory state across the thread boundary
+    secret_agents.name = "Pierce Brosnan"
+    
+    # Mutates MoneyPenny's isolated TLS counter (Executes in 1 clock cycle)
+    total_agents_dispatched += 1
+
+thread AgentM:
+    # Safely reads and mutates the shared state
+    secret_agents.mission = "kill 006"
+    
+    # Mutates AgentM's isolated TLS counter. Does NOT affect MoneyPenny's count.
+    total_agents_dispatched += 1
+
+def execute_mission():
+    # Stack-local variable. Bound to the RSP register.
+    local_kill_count: int32 = 0 
+```
+
+## 3. First-Class Threads & OS Telemetry
+
+In legacy languages, concurrency is treated as an afterthought—relegated to standard library imports (`std::thread`, `import threading`) where OS-level thread management requires verbose, platform-specific boilerplate.
+
+Lizard elevates the thread to a **First-Class AST Node**. 
+
+By defining threads natively within the syntax, the compiler guarantees deterministic execution lifecycles and provides unparalleled bare-metal telemetry out of the box.
+
+### Mandatory Naming & POSIX Telemetry
+When a developer defines a thread in Lizard, they are forced to name it. The compiler takes this AST identifier and automatically binds it to the underlying OS thread name (e.g., via `pthread_setname_np` on Linux, which enforces a 15-character physical limit. If a thread name exceeds the limit lizard will sigh at you (issue a warning) and truncate the thread name. It will issue an error if two threads truncate to the same name.). 
+
+If your pipeline crashes and you open `gdb`, `htop`, or a Linux core dump, you will not see 50 anonymous processes. You will see exactly which thread faulted directly in the OS telemetry.
+
+### The Execution Object
+The declared thread immediately becomes a first-class execution object in the parent scope, exposing native lifecycle and hardware-affinity methods without requiring external OS libraries.
+
+**Example: Native Threading & Core Pinning**
+```python
+# The compiler inherently recognizes this as a thread entry point.
+# It automatically maps the AST identifier to the OS thread name.
+thread FeedHandler_CTA:
+    while running:
+        parse_market_data()
+
+def system_boot():
+    # The thread exists as a manageable object in the parent scope.
+    
+    # 1. Hardware Affinity: Pin the thread directly to CPU Core 2
+    # Bypasses the need for complex `taskset` or `numactl` bash scripts.
+    FeedHandler_CTA.pin_core(2)
+    
+    # 2. Execution Lifecycle
+    FeedHandler_CTA.start()
+    
+    # ... runtime logic ...
+    
+    FeedHandler_CTA.join()
+```
+
+### A. Structural Geometry: The `-L` Hardware Synchronization Matrix
+
+When a developer crosses the concurrency boundary using the `[[shared]]` attribute, Lizard maps optimization flags (`-L`) directly to physical hardware cache-line synchronization. This allows developers to dynamically trade strict data integrity for raw throughput or domain-specific access patterns.
+
+*   **`-L1` (Default) — Strict Consistency (The Implicit Seqlock):** 
+    Lizard automatically alters the physical geometry of `[[shared]]` objects. The compiler silently prepends a 64-bit Sequence Counter to the memory layout, enforcing strict L1 cache-line alignment. 
+    *   *Writers* automatically wrap mutations by incrementing the sequence counter. 
+    *   *Readers* automatically emit a spin-read loop to verify the sequence counter has not changed mid-read. 
+    *   *Best for:* High-Frequency Trading (HFT), deterministic state machines, and structs < 128 bytes where tear-free reads are mathematically mandatory.
+
+*   **`-L2` — Eventual Consistency (The Atomic Wall):** 
+    Strips all sequence counters and brute-forces the AMD Infinity Fabric. The compiler injects the x86 `F0` (`LOCK`) prefix exclusively on the exact primitive being mutated, completely ignoring multi-field struct boundaries. 
+    *   *Trade-off:* Accepts torn reads across complex structs in exchange for continuous, non-blocking asynchronous throughput. 
+    *   *Best for:* Biotechnology (e.g., massive multi-megabyte genomic structs where locking the entire object for a single scalar mutation is impossible), stochastic simulations, and macro-probabilistic modeling.
+
+*   **`-L3` — Bare-Metal Anarchy:** 
+    Zero locks. Zero sequence counters. Zero `F0` prefixes. The compiler emits pure, raw x86_64 arithmetic instructions directly against the `[[shared]]` memory block. 
+    *   *Trade-off:* Guarantees catastrophic data races and visual tearing if not managed manually by the developer. 
+    *   *Best for:* Single-Producer/Single-Consumer (SPSC) lock-free ring buffers where the developer mathematically guarantees thread safety via their own custom padding and atomic memory fences.
 
 ## 4. Deterministic Error Handling: The Zero-Unwind Architecture
 
@@ -492,7 +593,7 @@ The compiler mathematically proves the necessary memory abstraction at compile-t
 1.  **The Raw Pointer Path (Zero-Cost):**
     If the compiler proves a reference is strictly thread-local, or that its lifespan is guaranteed to be shorter than the object it points to (e.g., passing down the call stack), it compiles the reference as a raw, zero-overhead x86_64 pointer (`T*`).
 2.  **The Cross-Thread Reference Path (Implicit Concurrency):**
-    If the compiler proves a reference crosses a thread boundary, but is only *read/mutated* and never dynamically rebound to a new address, it remains a raw pointer. However, the compiler automatically injects the structural geometry dictated by your `-L` flags (e.g., `-L1` implicit `seqlock`, or `-L2` `F0` hardware locks) to guarantee thread-safe mutations.
+    If the compiler sees a reference crosses a thread boundary ([[shared]] tag), but is only *read/mutated* and never dynamically rebound to a new address, it remains a raw pointer. However, the compiler automatically injects the structural geometry dictated by your `-L` flags (e.g., `-L1` implicit `seqlock`, or `-L2` `F0` hardware locks) to guarantee thread-safe mutations.
 3.  **The Ref-Count Escalation Path (Turing-Complete Survival):**
     If, and only if, the compiler detects that a reference crosses a thread boundary AND its lifespan cannot be statically determined (e.g., it is inserted into a global asynchronous hash map or dynamically rebound mid-flight), the compiler silently promotes the object to a heap allocation and attaches an implicitly locked reference counter (`LOCK XADD`). 
 
