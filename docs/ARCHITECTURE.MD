@@ -167,6 +167,42 @@ When a developer crosses the concurrency boundary using the `[[shared]]` attribu
     *   *Trade-off:* Guarantees catastrophic data races and visual tearing if not managed manually by the developer. 
     *   *Best for:* Single-Producer/Single-Consumer (SPSC) lock-free ring buffers where the developer mathematically guarantees thread safety via their own custom padding and atomic memory fences.
 
+### B. Hardware Topology & Semantic Scheduling
+
+The OS scheduler's logical core numbering (e.g., Linux mapping Core 0 and Core 16 as hyperthread siblings) is a notorious trap. Accidentally manually pinning a 100% CPU spin-polling loop to the same physical silicon as a UDP network feed handler will result in catastrophic packet latency.
+
+Lizard solves this by providing native hardware topology introspection and Semantic Thread Scheduling.
+
+#### Topology Introspection
+Lizard abstracts OS-specific CPU topology (e.g., Linux `/proc/cpuinfo`, Windows `GetLogicalProcessorInformation`) into native, array-based hardware helpers:
+*   `CPU.get_physical_cores()`: Returns an array of all true physical silicon core IDs, bypassing OS logical fragmentation.
+*   `CPU.get_virtual_cores()`: Returns an array of all secondary SMT/hyperthread logical core IDs.
+*   `CPU.get_smt_sibling(id)`: A bidirectional mapping function. Pass a physical core ID to get its corresponding SMT sibling, or pass a virtual ID to resolve its physical host core.
+
+#### Semantic Thread Tags
+For developers who want optimized CPU placement without the risk of manually hardcoding core collisions, Lizard provides semantic scheduling tags. The Lizard runtime evaluates these tags at `.start()` to optimally distribute threads across the physical silicon topology.
+
+*   **`[[heavy]]` (The ALU Monopolizer):** 
+    Designed for math-intensive operations, 100% active spin-polling, or complex ML inference. The scheduler aggressively hunts for an unoccupied physical core. If the environment permits, it will auto-pin the thread to guarantee uninterrupted hardware access and maximum L1/L2 cache ownership.
+*   **`[[medium]]` (The Bursty IO):** 
+    Designed for network feed handlers and event-driven architectures. Frequently sleeps waiting for IO (`epoll`, `IOCP`), but requires high compute capacity when awakened. The scheduler prefers open physical cores, but will safely map them to SMT siblings of other `[[medium]]` or `[[light]]` threads if silicon is constrained.
+*   **`[[light]]` (The Background Worker):** 
+    Designed for telemetry, logging, and asynchronous state-saving. The scheduler actively prioritizes dumping these threads onto SMT/hyperthread siblings to intentionally keep the primary physical cores completely uncontended for `[[heavy]]` workloads.
+
+**Example: Semantic Scheduling**
+```python
+# Lizard ensures the logger runs on an SMT sibling, 
+# keeping physical cores free for the execution engine.
+[[light]]
+thread TelemetryLogger:
+    flush_logs()
+
+# Lizard automatically isolates this thread on a dedicated physical core.
+[[heavy]]
+thread AlphaExecutionEngine:
+    while running:
+        calculate_vwap_and_fire()
+
 ## 4. Deterministic Error Handling: The Zero-Unwind Architecture
 
 Traditional exception handling (C++ `throw`, Python tracebacks) relies on asynchronous stack unwinding. While often marketed as "zero-cost" on the happy path, throwing an exception requires the runtime to parse compressed stack-frame tables (DWARF) and execute reverse-destructors. This introduces catastrophic, non-deterministic latency spikes (often exceeding 5,000 microseconds). In a high-frequency pipeline, a 5ms stall is a fatal system failure. 
