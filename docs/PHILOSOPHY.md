@@ -59,6 +59,19 @@ When a thread encounters an unrecoverable state (a null pointer, a severed socke
 It should sever its stack pointer (`XCHG EAX, ESP` 🔥) and die instantly. 
 Latency is the only metric that matters. Do not apologize for crashing; just crash faster, reclaim a new stack from the pool, and process the next tick. 
 
+### 8. The Eradication of Debug Mode (The Heisenberg Fallacy)
+Legacy compilers (GCC, Clang) maintain a schizophrenic dichotomy between `-O0` (Debug) and `-O3` (Release). In Debug mode, the compiler intentionally bloats stack frames, ignores `inline` mandates, and cripples the ALU pipeline just to appease step-through debuggers. 
+
+This introduces the **Heisenberg Bug**: the act of observing the program fundamentally alters the physics of its execution. An HFT lock-free queue that executes flawlessly at 480M msgs/sec in Release mode will spontaneously overflow and collapse in Debug mode because the compiler artificially handicapped the reader thread.
+
+**Lizard has no `--debug` flag. Lizard has no `--release` flag.**
+
+Lizard is a deterministic physics engine. The execution geometry is defined strictly by your AST metadata tags (`[[unroll]]`, `[[branchless]]`, `[[shared]]`), not by a command-line heuristic. What you type is exactly what the silicon executes, every single time. If your code works, it runs at the physical limit of the hardware. If your code fails, it drops its tail (`XCHG EAX, ESP`) and terminates. Lizard refuses to lie to you about the state of the CPU just so you can use a breakpoint.
+
+
+c++ 2
+Loading
+gemini-3.1-pro-preview
 
 
 
