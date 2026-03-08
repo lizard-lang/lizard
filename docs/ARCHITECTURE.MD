@@ -1246,6 +1246,42 @@ For situations where a JIT engine is strictly prohibited (e.g., Apple iOS, game 
 *   The compiler executes its standard AST and SSA passes, but instead of writing opcodes to a `memfd` execution block, it emits a standard binary artifact (`.exe`, `.so`, `.dll`). 
 *   **The Pragmatic Warning:** By executing an AOT build, the developer intentionally forfeits Lizard's dynamic microarchitecture targeting and `constexpr` runtime I/O capabilities. The code will execute as a standard, static binary. Lizard maintainers take absolutely zero responsibility for ABI mismatches or generic-silicon latency penalties incurred by using this legacy distribution model. Lizard is a JIT compiler first; AOT is provided strictly as a pragmatic fallback.
 
+### C. Zero-Trust Silicon Gatekeeping (IAM for CPU Registers)
 
+In large-scale quantitative funds or enterprise environments, junior developers frequently introduce catastrophic latency regressions by misusing concurrency primitives or polluting shared memory. Traditional organizations attempt to solve this via code-review bureaucracy. 
+
+Lizard solves this at the compilation layer by enabling **Identity and Access Management (IAM) for CPU Hardware**.
+
+Because Lizard’s `constexpr` phase has unrestricted network I/O and full AST visibility, enterprise architects can write compiler-level gatekeepers that poll Active Directory, LDAP, or Okta during the build process to verify the executing developer's HR access tier before emitting physical machine code.
+
+**Example: HR-Enforced Cache Mutability**
+```python
+[[constexpr]]
+def enforce_silicon_clearance():
+    # 1. Identify all variables in the AST requesting Infinity Fabric mutation
+    shared_vars = [v for v in _project.variables if "shared" in v._tags]
+    
+    if shared_vars.length() > 0:
+        # 2. Fetch the compiling developer's local OS credential token
+        dev_token = OS.get_current_user_token()
+        
+        # 3. Query the corporate IAM server during compilation
+        auth_response = http.post("https://iam.enterprise.internal/verify", token=dev_token)
+        
+        # 4. Enforce HR constraints on the physical hardware
+        if auth_response.role == "Junior SWE" or auth_response.tier < 3:
+            throw CompileError(
+                f"Silicon Access Denied: {auth_response.name}. "
+                f"You are attempting to compile {shared_vars.length()} [[shared]] objects. "
+                f"Your current HR access tier ({auth_response.role}) does not permit you "
+                f"to mutate the AMD Infinity Fabric. Please request L1 Cache privileges "
+                f"from a Senior Architect."
+            )
+
+# The compiler verifies the developer's identity before touching the silicon
+enforce_silicon_clearance()
+```
+
+By bridging corporate identity management directly into the Abstract Syntax Tree, Lizard guarantees that inexperienced engineers cannot physically emit machine code that jeopardizes the firm's shared memory topology. 
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
