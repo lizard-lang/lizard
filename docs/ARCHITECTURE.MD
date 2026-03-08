@@ -1248,27 +1248,26 @@ For situations where a JIT engine is strictly prohibited (e.g., Apple iOS, game 
 
 ### C. Zero-Trust Silicon Gatekeeping (IAM for the Execution Pipeline)
 
-In large-scale quantitative funds or enterprise environments, junior developers frequently introduce catastrophic infrastructure failures by misusing concurrency primitives (e.g., recursive thread fork-bombs) or polluting shared memory. Traditional organizations attempt to solve this via code-review bureaucracy or runtime OS limits (`ulimit`), which only trigger *after* the damage to the server has begun.
+In large-scale quantitative funds or enterprise environments, junior developers frequently introduce catastrophic infrastructure failures by misusing concurrency primitives (e.g., recursive thread fork-bombs) or polluting shared memory. Similarly, catastrophic trading firm liquidations often occur due to unauthorized or mistaken deployments to live production servers. 
 
-Lizard solves this at the compilation layer by enabling **Identity and Access Management (IAM) for CPU Hardware**.
+Traditional organizations attempt to solve this via code-review bureaucracy or runtime OS limits (`ulimit`), which only trigger *after* the damage to the server has begun.
+
+Lizard solves this at the compilation layer by enabling **Identity and Access Management (IAM) for CPU Hardware and Deployment Environments.**
 
 Because Lizard is natively a JIT compiler, the compilation phase *is* the execution launch sequence. By leveraging unrestricted `constexpr` network I/O and full AST visibility, enterprise architects can write compiler-level gatekeepers that poll Active Directory or LDAP to verify the executing developer's HR access tier *before* emitting physical machine code. 
 
-**Example: Pre-Execution Fork-Bomb Prevention**
+**Example 1: Pre-Execution Infrastructure Protection**
 ```python
 [[constexpr]]
 def enforce_infrastructure_limits():
-    # 1. Statically count the number of distinct thread allocations in the AST
+    # Statically count the number of distinct thread allocations in the AST
     thread_count = _project.threads.length()
     
     if thread_count > 4:
-        # 2. Fetch the executing developer's local OS credential token
         dev_token = OS.get_current_user_token()
-        
-        # 3. Query the corporate IAM server during the JIT phase
         auth_response = http.post("https://iam.enterprise.internal/verify", token=dev_token)
         
-        # 4. Enforce HR constraints on the physical hardware
+        # Enforce HR constraints on the physical hardware
         if auth_response.role == "Junior SWE" or auth_response.tier < 3:
             throw CompileError(
                 f"Infrastructure Access Denied: {auth_response.name}. "
@@ -1277,11 +1276,35 @@ def enforce_infrastructure_limits():
                 f"of 4 threads to prevent server degradation. "
                 f"Please optimize your workload or request High-Compute privileges."
             )
-
-# The JIT compiler verifies the developer's identity before touching the silicon
-enforce_infrastructure_limits()
 ```
 
-By bridging corporate identity management directly into the Abstract Syntax Tree, Lizard guarantees that inexperienced engineers cannot physically emit machine code that jeopardizes the firm's shared memory topology or OS scheduler. The threat is neutralized at compile-time.
+**Example 2: Production Environment Gatekeeping**
+Lizard allows organizations to prevent rogue manual deployments by reading the host telemetry during compilation and enforcing strict CI/CD pipeline authorization.
+
+```python
+[[constexpr]]
+def prevent_rogue_production_deploy():
+    # Read the host OS telemetry during the JIT phase
+    server_hostname = OS.get_hostname()
+    
+    if server_hostname.starts_with("PRODUCTION"):
+        dev_token = OS.get_current_user_token()
+        auth = http.post("https://iam.enterprise.internal/verify", token=dev_token)
+        
+        # Ensure the script is being executed by the automated Build System, 
+        # not a human engineer SSH'd into the live box.
+        if auth.role != "ServiceAccount_Jenkins" and auth.role != "DevOps_Lead":
+            throw CompileError(
+                f"FATAL DEPLOYMENT HALTED: User {auth.name} attempted to manually "
+                f"execute a JIT binary on a live production server. "
+                f"All production executions must be routed through the CI/CD pipeline."
+            )
+
+# The compiler verifies safety boundaries before touching the silicon
+enforce_infrastructure_limits()
+prevent_rogue_production_deploy()
+```
+
+By bridging corporate identity management and host telemetry directly into the Abstract Syntax Tree, Lizard guarantees that inexperienced engineers cannot physically emit machine code that jeopardizes the firm's shared memory topology, and guarantees that unauthorized code cannot execute on live production servers. The threat is neutralized at compile-time.
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
