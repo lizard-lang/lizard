@@ -1293,7 +1293,7 @@ def prevent_rogue_production_deploy():
         
         # Ensure the script is being executed by the automated Build System, 
         # not a human engineer SSH'd into the live box.
-        if auth.role != "ServiceAccount_Jenkins" and auth.role != "DevOps_Lead":
+        if auth.role not in ["ServiceAccount_Jenkins", "DevOps_Lead"]:
             throw CompileError(
                 f"FATAL DEPLOYMENT HALTED: User {auth.name} attempted to manually "
                 f"execute a JIT binary on a live production server. "
