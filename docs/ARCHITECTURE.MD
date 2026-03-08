@@ -982,6 +982,37 @@ def process_trade(size: int64):
 
 This absolute freedom allows systems engineers to strip massive amounts of initialization logic, environmental polling, and parsing overhead out of their runtime architecture, mathematically ensuring that the hot path only executes pure alpha.
 
+### C. AST Introspection & Native Compile-Time Linting
+
+In legacy ecosystems, enforcing architectural standards requires third-party static analyzers (Clang-Tidy, ESLint, Ruff). These external linters are bolted-on bureaucratic nightmares. They require active participation to maintain, rely on complex configuration files, break during toolchain updates, and frequently suffer from false-positive troubleshooting loops. 
+
+Lizard fundamentally believes that outsourcing code-auditing to a third-party tool is a failure of the compiler. The compiler's job is to assist the engineer, and that includes giving them the power to mathematically enforce their organization's specific architectural laws.
+
+Because Lizard's `constexpr` phase has unrestricted access to the internal environment, it exposes the compiler's own Abstract Syntax Tree (AST) metadata to the developer. You can write native `constexpr` functions to iterate over your codebase, inspect metadata tags, and execute custom `static_assert` logic before the binary is ever emitted. 
+
+**Example: The Native HFT Linter**
+```python
+# This function executes entirely during the compilation phase.
+[[constexpr]]
+def audit_hft_pipeline():
+    # Iterate over all functions registered in the project's AST
+    for func in _project.functions:
+        
+        # Enforce organizational rules: 
+        # "If a quant marks a function as hot, it MUST be branchless."
+        if "hot" in func._tags and "branchless" not in func._tags:
+            throw CompileError(
+                f"Architecture Violation: Function '{func.name}' is tagged "
+                f"[[hot]] but is missing the [[branchless]] mandate. "
+                f"Fix your control flow."
+            )
+
+# Execute the audit before generating the binary
+audit_hft_pipeline()
+```
+
+By exposing AST tags to `constexpr` evaluation, developers can build their own unbreakable CI/CD gatekeepers directly into the source code using the exact same syntax they use to write their trading algorithms. Zero external dependencies. Zero YAML files. Complete architectural authority.
+
 ## 14. Deterministic Optimization Passes
 Lizard fundamentally rejects "heuristic optimizations" (where the compiler guesses branch probabilities or silently rearranges struct geometry). However, Lizard aggressively embraces **Deterministic Optimizations**—mathematical passes that provably reduce hardware execution cycles without altering the developer’s explicit structural intent. 
 
