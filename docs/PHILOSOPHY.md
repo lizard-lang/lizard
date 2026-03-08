@@ -62,7 +62,7 @@ Latency is the only metric that matters. Do not apologize for crashing; just cra
 ### 8. The Eradication of Debug Mode (The Heisenberg Fallacy)
 Legacy compilers (GCC, Clang) maintain a schizophrenic dichotomy between `-O0` (Debug) and `-O3` (Release). In Debug mode, the compiler intentionally bloats stack frames, ignores `inline` mandates, and cripples the ALU pipeline just to appease step-through debuggers. 
 
-This introduces the **Heisenberg Bug**: the act of observing the program fundamentally alters the physics of its execution. An HFT lock-free queue that executes flawlessly at 480M msgs/sec in Release mode will spontaneously overflow and collapse in Debug mode because the compiler artificially handicapped the reader thread.
+This introduces the **Heisenberg Bug**: the act of observing the program fundamentally alters the physics of its execution. An HFT lock-free queue that executes flawlessly at 48M msgs/sec in Release mode will spontaneously overflow and collapse in Debug mode because the compiler artificially handicapped the reader thread.
 
 **Lizard has no `--debug` flag. Lizard has no `--release` flag.**
 
