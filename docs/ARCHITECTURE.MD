@@ -203,6 +203,58 @@ thread TelemetryLogger:
 thread AlphaExecutionEngine:
     while running:
         calculate_vwap_and_fire()
+```
+
+### C. Execution Mechanics & The Affinity Sandbox
+
+Lizard rejects the opaque, cache-destroying multiplexing of goroutines and async/await thread pools. Lizard threads map 1:1 with OS threads, but their placement is governed by Semantic Tags and the developer's declared **Affinity Sandbox**.
+
+By default, calling `thread.start()` with semantic tags allows the Lizard runtime to orchestrate placement across the entire host CPU. However, in enterprise environments where Lizard coexists with legacy C++ infrastructure or dedicated NIC interrupt cores, developers can restrict Lizard's physical domain.
+
+#### 1. The Global Affinity Pool
+Developers can define exactly which cores the Lizard runtime is allowed to touch. Once defined, all semantic tags (`[[heavy]]`, `[[light]]`) are evaluated strictly within this restricted silicon sandbox.
+
+```python
+# Reserve cores 0-3 for a legacy C++ engine.
+# Hand cores 4-15 (and their SMT siblings) exclusively to Lizard.
+available_phys = CPU.get_physical_cores()[4:15]
+available_virt = CPU.get_virtual_cores()[4:15]
+
+# Lock the runtime sandbox. 
+# Lizard will now only schedule threads across this specific subset.
+CPU.set_affinity_pool(available_phys + available_virt)
+
+[[heavy]]
+thread AlphaEngine:
+    do_math()
+
+# The Lizard runtime sees [[heavy]] and auto-pins it to Core 4, 
+# mathematically guaranteeing it never touches Cores 0-3.
+AlphaEngine.start() 
+```
+
+#### 2. The Absolute Override (`.start(core_id)`)
+Semantic tags are a quality-of-life feature for macro-orchestration. When absolute deterministic geometry is required, the developer can bypass the tag heuristics and assert physical dominance by passing a core ID directly to the start method.
+
+```python
+thread DirectNetworkFeed:
+    parse_udp()
+
+# Bypasses all runtime heuristics and semantic tags.
+# Violently pins the thread to physical Core 2 before the instruction pointer jumps.
+DirectNetworkFeed.start(core_id=2)
+```
+
+#### 3. Custom Thread Managers
+Because threads are First-Class AST nodes and hardware introspection (`CPU.get_core_pairs()`) is native, developers are not forced to use Lizard's default scheduler. Quantitative engineering teams can effortlessly write their own domain-specific `ThreadManager` classes in pure Lizard syntax to handle hyper-specific SPSC (Single-Producer/Single-Consumer) core pairing or dynamic load balancing.
+
+#### 4. OS-Level Inheritance (Respecting `taskset` and `cgroups`)
+Lizard does not suffer from the arrogant "God Complex" of legacy market data providers. 
+
+If a systems engineer launches a Lizard binary via a strict OS-level mask (e.g., `taskset -c 4-15 lizard bot.liz` on Linux, or via Docker `cgroups`), the Lizard runtime inherently respects that boundary at boot. 
+
+The hardware introspection APIs (`CPU.get_physical_cores()`) and the semantic scheduler will automatically truncate their available topology maps to match the OS-enforced affinity mask. You will never have to write an `LD_PRELOAD` hack to intercept rogue `pthread_setaffinity_np` calls just to stop the runtime from breaking out of its designated hardware partition.
+
 
 ## 4. Deterministic Error Handling: The Zero-Unwind Architecture
 
