@@ -1350,4 +1350,38 @@ prevent_rogue_production_deploy()
 
 By bridging corporate identity management and host telemetry directly into the Abstract Syntax Tree, Lizard guarantees that inexperienced engineers cannot physically emit machine code that jeopardizes the firm's shared memory topology, and guarantees that unauthorized code cannot execute on live production servers. The threat is neutralized at compile-time.
 
+## Section 17: Configurable Compiler Topologies and Pluggable ABI Architecture.
+
+Lizard fundamentally separates language syntax semantics from hardware memory layout decisions. High-performance computing demands localized data structures, yet legacy languages bake structural implementation details (such as the specific node-based bucketing of a hash map) directly into the global runtime specification. This forces a permanent, immutable Application Binary Interface (ABI) preventing classic languages from growing and adapting as programming practices change, new performance insights are discovered, new processor chip architectures have completely different performance characteristics (more cache, faster cache, victim caches, AI based memory prefetching, etc.) 
+
+Lizard really wants to eliminate as much command line parameters bloat that really don't need to be command line parameters. 
+
+Because Lizard supports source code available JIT compilation first and foremost it gives us unprecedented flexibility to swap out compiler internal datastructures, classes, etc. Let's say for instance we need two different hashing mechanisms to support a Morrowind like single player video game that is a modder's paradise in flexibility contrasted with high performance computing that needs big-O stability like O(lg(n)) inserts. You can compile these two vastly different projects using the same language but get different fundamental performance impacts with a simple configuration file:
+
+```
+# Profile A: Video Game Server Configuration
+[compiler.geometry]
+dynamicInheritanceHashTable = "wyhash" # Prioritizes collision resistance for uncoordinated modders
+
+# Profile B: Low-Latency High-Frequency Trading Profile
+[compiler.geometry]
+dynamicInheritanceHashTable = "std::map" # std::map is a red-black tree map that guarentees O(logN) insertion for O(logN) lookups.
+```
+
+### ABI Considerations
+Unfortunately not every developer can use JIT source code available such as liz build --aot. At the start of every file every config setting that is available to be changed in lizard has a simple key:value array structure of 255 ascii character key (not including null temrinator, 256 byte including null terminator) followed by a 255 asci character value (256 byte with null terminator) to support ABI. Lizard will do a simple string comparison upon loading the binary payload. If the strings match Lizard will assume everything is binary compatible and continue onto execution, introducing possible unsafe unknown execution if they are NOT binary compatible. For instance a module may have this specified:
+```
+["lizard_version", "1.0.1_quick_hotfix"]
+["operating_system", "windows"]
+["dynamicInheritanceHashTable", "std::map"] 
+```
+and if the other module has the same matching key-value pair it will assume both uses the same code, both know where the code address of the functions inside of "std::map" are, and so on.
+
+If the strings do not match lizard throws a runtime error specifying ABI and prints out the key-value pairs from all modules that don't match. 
+
+The first module that lizard loads MUST have code definitions for ALL lizard internals as specified for the specific version of lizard. Lizard will ONLY ever ensure a perfect ABI match of EXACT lizard versions. We will NEVER officially support any ABI matches between ANY release/major/minor version increases of lizard. All users of Lizard MUST compile ALL modules with the same EXACT version of lizard on the SAME operating system (linux, windows, OSX, etc.).
+
+The Lizard team wants total ABI freedom and not be handcuffed to decisions we made forty years ago.
+
+
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
