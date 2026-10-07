@@ -1397,10 +1397,16 @@ Because Lizard supports source code available JIT compilation first and foremost
 
 ```
 # Profile A: Video Game Server Configuration
+[compiler]
+lizard_version = "1.0.1_quick_hotfix"
+lizard_version_other = "1.0.1"
+lizard_version_other = "1.0.0"
+lizard_version_other = "1.0.2"
+lizard_version_other = "1.0.3"
 [compiler.geometry]
 dynamicInheritanceHashTable = "wyhash" # Prioritizes collision resistance for uncoordinated modders
 
-# Profile B: Low-Latency High-Frequency Trading Profile
+# Profile B: Compute Optimized O(logN) guaranteed performance.
 [compiler.geometry]
 dynamicInheritanceHashTable = "std::map" # std::map is a red-black tree map that guarentees O(logN) insertion for O(logN) lookups.
 ```
@@ -1414,11 +1420,53 @@ Unfortunately not every developer can use JIT source code available such as liz 
 ```
 and if the other module has the same matching key-value pair it will assume both uses the same code, both know where the code address of the functions inside of "std::map" are, and so on.
 
+Multiple versions of lizard MAY be listed if the application author is confident their source code or compiled assembly code is fully compatible. To guard against accidents the application author MUST use the "lizard_version_other" key to list all other versions, for example:
+
+["lizard_version", "1.0.1_quick_hotfix"]
+["lizard_version_other", "1.0.1"]
+["lizard_version_other", "1.0.0"]
+["lizard_version_other", "1.0.2"]
+["lizard_version_other", "1.0.3"]
+
+The application author MUST use the most compatible lizard version as "lizard_version." Lizard uses this version if it exists. Lizard only tries other versions if the preferred version doesn't exist on the system, in order of the versions listed.
+
 If the strings do not match lizard throws a runtime error specifying ABI and prints out the key-value pairs from all modules that don't match. 
 
 The first module that lizard loads MUST have code definitions for ALL lizard internals as specified for the specific version of lizard. Lizard will ONLY ever ensure a perfect ABI match of EXACT lizard versions. We will NEVER officially support any ABI matches between ANY release/major/minor version increases of lizard. All users of Lizard MUST compile ALL modules with the same EXACT version of lizard on the SAME operating system (linux, windows, OSX, etc.).
 
-The Lizard team wants total ABI freedom and not be handcuffed to decisions we made forty years ago.
+The Lizard team wants total ABI freedom and not be handcuffed to decisions we made forty years ago. The lizard team will do their best to try to preserve ABI compatiability between all minor versions but make no guarantees. 
+
+## Section 18: No More Dependency Hell (The Immutable Version Routing Shim)
+Lizard fundamentally rejects the fragile paradigm of global system library dependencies, virtual environment managers (such as pyenv), and bloated package orchestration tooling. In legacy operating systems and language runtimes, updating a global system library or changing a language interpreter version frequently introduces silent, catastrophic breakage.
+
+### The /usr/bin/lizard Routing Shim
+To accommodate enterprise environments and developers who drop a global compiler binary into system execution paths (such as /usr/bin/lizard or /usr/local/bin), the global Lizard command does not function as a single shifting, monolithic interpreter. Instead, the global binary functions strictly as an ultra-fast, lookahead version-routing layer.
+1. The Core Commitment: Beginning with the 1.0.0 release milestone, every future distribution build of Lizard natively ships with an embedded, complete payload containing every single historical compiler binary release.
+2. The Lookahead Pass: When a user executes `lizard main.liz`, the global routing shim will run main.liz with the latest version of lizard if no configuration file is present. If a configuration file is present it runs the exact specified version, located in `lizard/versions/`. If the specified version doesn't exist a error is printed to the screen.
+3. If lizard runs a specific executable (ie `lizard main.exe`), the global routing shim will read the config metadata to run the correct version of lizard if the .exe did not already include the lizard executable environment as part of its release.  
+
+### The Lizard Library Routing Shim
+The lizard team is keeping the main language as lean as possible with as little standard libraries as possible. Legacy languages like C++ had so many issues revolving around standard library compatibilities like minor implementation differences in standard library data structures and algorithms that had significant performance issues, ramifications, edge cases, ABI compatibility issues, and so on. We are also realists too - lizard won't gain widespread support if you have to rewrite everything from scratch. We will include extensive library support for all the projects the team is interested in such as networking libraries, file i/o libraries, and so on. As a language though we want to embrace multiple libraries, we don't want ours to be the defacto library and spend a ton of time having users upset if something is broken across platforms, etc. Think about how many json libraries there are for python - the built in json library, simdjson, orjson, ujson, etc. Each has different performance tradeoffs, quirks, sets different standards and expectations, that then makes later libraries feel compelled to copy the design pattern like `dumps()` even if it turns out it wasn't a good idea. Or even has annoying things that break compatibility like some json libraries implementations of dumps returns a str or returns a byte array.
+
+With that being said though the Lizard team feels it is very important to set clear guidelines and what we intend to do for library versioning. Every official Lizard library will have a versions folder with every historical release from 1.0.0 onward, for example /usr/lib/lizardnet/versions for our planned lizardnet low level direct access to underlying OS socket library and high level planned easy to use TCP, and stateless UDP mosh-like networking library. 
+
+Libraries are treated exactly like any other source file or DLL in regards to the core language lizard version. 
+
+The Application config file or embedded ABI table has the the following table format (256 byte strings including null terminator) for library versioning imports to help the lizard library routing shim to select the correct library:
+```
+["library_name", "library_min_version", "2.0.0"]
+["library_name", "library_max_version", "2.5.0"]
+```
+
+The library routing shim will use the following strategy: If max version is specified it starts with max version then if all dllimports work it uses max version. If any dllimport fails it keeps decrementing version count until it reaches min_version. 
+
+If max version is unspecified or has the sentinel value "unlimited" then the routing shim starts with the min version of the library, and keeps dllimporting each version until a dllimport has a mismatch and then it uses the last known matching dllimport. 
+
+Application authors are ENCOURAGED to keep library versions up to date and with a narrow verified window to keep initial application load times lightning fast. 
+
+Library authors are ENCOURAGED to have historical versions for every good known historical version that ever had a public release, and to be smart to only release library versions that have meaningful changes to keep load times lightning fast.
+
+The Lizard team refuses to do any caching of routing shim results as having to clear any system or application caches is a giant source of bugs, incompatibilities, and version hell. 
 
 
 Copyright (c) 2026 Adderalin & lizard-lang under MIT LICENSE. SEE LICENSE file.
