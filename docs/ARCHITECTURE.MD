@@ -1422,11 +1422,13 @@ and if the other module has the same matching key-value pair it will assume both
 
 Multiple versions of lizard MAY be listed if the application author is confident their source code or compiled assembly code is fully compatible. To guard against accidents the application author MUST use the "lizard_version_other" key to list all other versions, for example:
 
+```
 ["lizard_version", "1.0.1_quick_hotfix"]
 ["lizard_version_other", "1.0.1"]
 ["lizard_version_other", "1.0.0"]
 ["lizard_version_other", "1.0.2"]
 ["lizard_version_other", "1.0.3"]
+```
 
 The application author MUST use the most compatible lizard version as "lizard_version." Lizard uses this version if it exists. Lizard only tries other versions if the preferred version doesn't exist on the system, in order of the versions listed.
 
