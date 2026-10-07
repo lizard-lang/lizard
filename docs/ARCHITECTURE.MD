@@ -108,6 +108,49 @@ def execute_mission():
     local_kill_count: int32 = 0 
 ```
 
+### Inheritance
+Lizard gives the developer complete control over inheritance. Lizard seeks to be as cache friendly and speed performant as possible. We also realize that some form of inheritance looking like support is needed for good software engineering practice, multiple people working on the same class, later expansion by different code teams, or even expanding objects for mod support. Traditional polymoprhic inheritance with vtables is problematic as it is memory inefficient, possibly a cache nightmare with a lot of pointer chasing and vtable resolution, all to support closed source dynamic library "portability and extensibility" without risking revealing proprietary source code. Other languages like Python instead solve it by making objects one giant hashtable which can have drastic performance impacts of say over 1,000 nanoseconds (1 microsecond) to resolve each and every key. Modern C++ hash tables are now under 2 nanoseconds assuming the data is in L1 cache, but still when EVERY FIELD IS HASHED it is unacceptable performance as you will blow out L1 going into L2/L3 or even god forbid main memory. Main memory is still on the order of ~100 nanoseconds so just querying 10 fields.... can get pricey on a giant hash table with non cache friendly strategies. 
+
+Lizard gives developers the choice. This is one fundamental reason why we choose upfront to write a JIT language with FULL SOURCE CODE AVAILABLE. If you use the most optimal static inheritance method you get a object that uses the largest memory with lightning C++ like union performance. If you NEED future portability and extensibility lizard happily supports this by deciding to go down the pythonic giant hashtable route:
+
+```
+struct bond_template(static secret_agent):
+     favorite_drink: string
+
+
+struct alec_template(static secret_agent):
+     favorite_snack: string
+
+struct bill_template(dynamic secret_agent):
+     favorite_meal: string
+
+#resulting compiler internal secrect_agent object are flattened to avoid vtable penalty with AST time checks for invalid references:
+
+struct secret_agent:
+    name: string
+    codename: string
+    license: string
+    nemesis: string
+    mission: string
+    __uniqueId: string [[union([favorite_drink: string], [favorite_snack: string])]] # requires source code available or you will get compile time errors
+    __dynamicHashTable: HashMap[string, object] = {[favorite_meal: string]} # heap allocated for infinite dynamic DLL/closed source hard compiled compatibility. conflicting keys take whatever is applied last/latest. 
+# Disclaimer: initialization and union syntax likely subject to change. 
+
+
+make_bonds_favorite_drink(agent: bond_template):
+     agent.favorite_drink = "vodka martini, shaken, not stirred"
+
+make_bonds_favorite_snack(agent: bond_template):
+    agent.favorite_snack = "cheetos" # static compile error, bond_template has no member favorite_snack. 
+
+make_bills_favorite_meal(agent: bill_template)
+    agent.favorite_meal = "prime rib and mashed taters."
+    agent.favorite_snack = "pringles" # static compile error, bill_template has no member favorite_snack. favorite_snack is currently restricted to static inheritance "alec_template"
+    agent.favorite_color = "blue" # static compile error, bill_template has no member favorite_color. lizard sighs at you saying lizard is not python.
+    agent.__dynamicHashTable[favorite_color, "blue"] # lizard will still let developers do stupid stuff if you really insist on messing with internals as lizard publicizes all internals by default. lizard omits a sigh unless you have --supress_internal_access_warnings. 
+```
+
+
 ## 3. First-Class Threads & OS Telemetry
 
 In legacy languages, concurrency is treated as an afterthought—relegated to standard library imports (`std::thread`, `import threading`) where OS-level thread management requires verbose, platform-specific boilerplate.
